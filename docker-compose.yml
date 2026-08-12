@@ -23,7 +23,7 @@ services:
     environment:
       - MONGO_URI=mongodb://mongodb:27017/assurance
       - JWT_SECRET=changeme_super_secret_key_at_least_32_chars_long
-      - CORS_ORIGINS=http://localhost:3000
+      - CORS_ORIGINS=http://localhost:3000,http://158.158.112.79:3000,http://158.158.112.79:*
       - UPLOADS_DIR=./uploads
       - ADMIN_EMAIL=admin@insurflow.com
       - ADMIN_PASSWORD=admin123
@@ -37,12 +37,15 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=/api
     container_name: insurflow_frontend
     restart: unless-stopped
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8080/api
+      - NEXT_PUBLIC_API_URL=/api
+      - BACKEND_INTERNAL_URL=http://backend:8080
     depends_on:
       - backend
     networks:

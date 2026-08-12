@@ -8,6 +8,8 @@ RUN npm install
 
 # Copier l'code kaml w n'buildiw l'projet
 COPY . .
+ARG NEXT_PUBLIC_API_URL=/api
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 RUN npm run build
 
 # N7ellou l'port 3000 w n'lanciow l'app

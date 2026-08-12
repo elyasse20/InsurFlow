@@ -28,7 +28,12 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         // Allow configured origins plus local dev origins (e.g. localhost:3000, 3001, 127.0.0.1:3000, etc.)
-        List<String> origins = new java.util.ArrayList<>(List.of(corsOrigins.split(",")));
+        List<String> origins = new java.util.ArrayList<>(
+            java.util.Arrays.stream(corsOrigins.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList()
+        );
         origins.add("http://localhost:*");
         origins.add("http://127.0.0.1:*");
         origins.add("https://localhost:*");
