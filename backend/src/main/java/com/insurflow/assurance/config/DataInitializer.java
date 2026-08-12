@@ -11,6 +11,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * DataInitializer — runs on startup, creates the default admin user and seeds default
@@ -55,8 +56,14 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void seedAdmin() {
-        if (userRepository.existsByEmail(adminEmail)) {
-            log.info("✓ Admin user already exists: {}", adminEmail);
+        Optional<User> existingAdmin = userRepository.findByEmail(adminEmail);
+        if (existingAdmin.isPresent()) {
+            User admin = existingAdmin.get();
+            admin.setPassword(passwordEncoder.encode(adminPassword));
+            admin.setRole(User.UserRole.ADMIN);
+            if (admin.getUsername() == null) admin.setUsername(adminUsername);
+            userRepository.save(admin);
+            log.info("✓ Verified and updated admin user credentials: {}", adminEmail);
             return;
         }
 
@@ -69,7 +76,6 @@ public class DataInitializer implements CommandLineRunner {
 
         userRepository.save(admin);
         log.info("✓ Admin user created: {} (role: ADMIN)", adminEmail);
-        log.warn("⚠ Change the default admin password in production!");
     }
 
     private void seedNatures() {

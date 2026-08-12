@@ -33,12 +33,12 @@ public class UserService {
             throw new IllegalArgumentException("Invalid credentials");
         }
 
-        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRole().name());
+        String token = jwtUtil.generateToken(user.getId(), user.getEmail(), user.getRoleName());
         return AuthResponse.builder()
                 .token(token)
                 .id(user.getId())
                 .username(user.getUsername())
-                .role(user.getRole().name())
+                .role(user.getRoleName())
                 .email(user.getEmail())
                 .build();
     }

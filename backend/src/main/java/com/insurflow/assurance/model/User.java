@@ -29,7 +29,7 @@ public class User {
     private String password;
 
     @Builder.Default
-    private UserRole role = UserRole.USER;
+    private UserRole role = UserRole.ADMIN;
 
     @CreatedDate
     private LocalDateTime createdAt;
@@ -37,7 +37,16 @@ public class User {
     @LastModifiedDate
     private LocalDateTime updatedAt;
 
+    public UserRole getRole() {
+        return role != null ? role : UserRole.ADMIN;
+    }
+
+    public String getRoleName() {
+        if (role == null) return "ADMIN";
+        return role.name().toUpperCase();
+    }
+
     public enum UserRole {
-        USER, ADMIN
+        USER, ADMIN, user, admin
     }
 }
