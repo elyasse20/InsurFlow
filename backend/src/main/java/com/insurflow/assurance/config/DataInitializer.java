@@ -2,6 +2,7 @@ package com.insurflow.assurance.config;
 
 import com.insurflow.assurance.model.*;
 import com.insurflow.assurance.repository.*;
+import com.insurflow.assurance.service.DataSeederService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -15,6 +16,7 @@ import java.util.List;
  * DataInitializer — runs on startup, creates the default admin user and seeds default
  * parameters, categories, natures and TVA from specifications if they are empty.
  */
+
 @Component
 @RequiredArgsConstructor
 @Slf4j
@@ -25,6 +27,8 @@ public class DataInitializer implements CommandLineRunner {
     private final CategoryRepository categoryRepository;
     private final ParametreRepository parametreRepository;
     private final TvaRepository tvaRepository;
+    private final ProductionRepository productionRepository;
+    private final DataSeederService dataSeederService;
     private final PasswordEncoder passwordEncoder;
 
     @Value("${app.admin.email:admin@insurflow.com}")
@@ -43,6 +47,11 @@ public class DataInitializer implements CommandLineRunner {
         seedCategories();
         seedParametres();
         seedTvas();
+
+        if (productionRepository.count() == 0) {
+            log.info("Production database is empty. Auto-seeding InsurFlow mock data for 2026...");
+            dataSeederService.seedMockData(false);
+        }
     }
 
     private void seedAdmin() {

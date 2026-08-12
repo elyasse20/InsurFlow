@@ -72,6 +72,7 @@ public class SecurityConfig {
                 // Public endpoints
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/register").permitAll()
+                .requestMatchers("/api/seed/**").permitAll()
                 // Static file serving for uploads
                 .requestMatchers("/api/uploads/**").permitAll()
                 // Admin-only user management
