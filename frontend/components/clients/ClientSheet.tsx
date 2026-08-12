@@ -150,9 +150,7 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
       fd.append('data', jsonBlob);
       if (file) fd.append('doc', file);
 
-      const { data: created } = await api.post<Client>('/clients', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const { data: created } = await api.post<Client>('/clients', fd);
       onCreated(created);
       handleOpenChange(false);
     } catch (err: any) {
@@ -204,7 +202,7 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
                     type="button"
                     onClick={() => setType(t)}
                     className={cn(
-                      'flex items-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium border-2 transition-all duration-200',
+                      'flex items-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium border-2 transition-all duration-200 justify-center',
                       type === t
                         ? 'border-primary bg-primary/10 text-primary'
                         : 'border-border bg-muted/30 text-muted-foreground hover:border-border/80 hover:text-foreground'
@@ -222,38 +220,36 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
 
             <Separator />
 
-            {/* Common fields */}
-            <div className="space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Informations générales
-              </p>
-              <FieldRow label="Nom" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Nom du client" />
-              <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 6XX XXX XXX" />
-              <FieldRow label="Adresse" id="adresse" value={form.adresse} onChange={set('adresse')} required placeholder="Adresse complète" />
-            </div>
-
             {/* Particulier fields */}
             {type === 'particulier' && (
-              <>
-                <Separator />
-                <div className="space-y-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Identité personnelle
-                  </p>
+              <div className="space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Identité & Coordonnées
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <FieldRow label="Nom" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Nom" />
                   <FieldRow label="Prénom" id="prenom" value={form.prenom} onChange={set('prenom')} required placeholder="Prénom" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 6XX XXX XXX" />
                   <FieldRow label="CIN" id="cin" value={form.cin} onChange={set('cin')} required placeholder="A123456" />
                 </div>
-              </>
+                <FieldRow label="Adresse" id="adresse" value={form.adresse} onChange={set('adresse')} required placeholder="Adresse complète" />
+              </div>
             )}
 
             {/* Société fields */}
             {type === 'societe' && (
-              <>
-                <Separator />
-                <div className="space-y-4">
-                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    Informations légales
-                  </p>
+              <div className="space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Raison Sociale & Informations Légales
+                </p>
+                <FieldRow label="Nom de la Société" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Raison sociale / Nom société" />
+                <div className="grid grid-cols-2 gap-4">
+                  <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 5XX XXX XXX" />
+                  <FieldRow label="RC (Registre commerce)" id="rc" value={form.rc} onChange={set('rc')} required placeholder="RC N°" />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
                   <FieldRow
                     label="ICE (15 chiffres)"
                     id="ice"
@@ -264,10 +260,10 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
                     maxLength={15}
                     pattern="^\d{15}$"
                   />
-                  <FieldRow label="Identifiant Fiscal" id="if" value={form.identifiantFiscal} onChange={set('identifiantFiscal')} required placeholder="Identifiant fiscal" />
-                  <FieldRow label="RC" id="rc" value={form.rc} onChange={set('rc')} required placeholder="Registre de commerce" />
+                  <FieldRow label="Identifiant Fiscal (IF)" id="if" value={form.identifiantFiscal} onChange={set('identifiantFiscal')} required placeholder="IF N°" />
                 </div>
-              </>
+                <FieldRow label="Adresse du siège" id="adresse" value={form.adresse} onChange={set('adresse')} required placeholder="Adresse du siège social" />
+              </div>
             )}
 
             <Separator />

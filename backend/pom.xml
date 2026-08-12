@@ -12,11 +12,11 @@
     <relativePath/>
   </parent>
 
-  <groupId>com.yksoftware</groupId>
+  <groupId>com.insurflow</groupId>
   <artifactId>assurance</artifactId>
   <version>1.0.0</version>
-  <name>assurance</name>
-  <description>Insurance Management System – Spring Boot backend</description>
+  <name>InsurFlow Backend</name>
+  <description>InsurFlow Management System – Spring Boot backend</description>
 
   <properties>
     <java.version>21</java.version>

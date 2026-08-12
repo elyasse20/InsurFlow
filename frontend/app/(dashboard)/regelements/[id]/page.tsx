@@ -110,8 +110,7 @@ export default function RegelementPage() {
       const formData = new FormData();
       formData.append('data', JSON.stringify(req));
       const { data } = await api.post<Reglement>(
-        `/regelements/${productionId}/paiement`, formData,
-        { headers: { 'Content-Type': 'multipart/form-data' } }
+        `/regelements/${productionId}/paiement`, formData
       );
       setReglement(data);
       setShowForm(false);
@@ -123,7 +122,7 @@ export default function RegelementPage() {
 
   if (loading) {
     return (
-      <div className="space-y-8 max-w-4xl">
+      <div className="max-w-4xl mx-auto w-full space-y-8">
         <div className="flex items-center gap-3">
           <Skeleton className="h-9 w-9 rounded-lg" />
           <div className="space-y-1.5"><Skeleton className="h-7 w-40" /><Skeleton className="h-4 w-60" /></div>
@@ -141,7 +140,7 @@ export default function RegelementPage() {
   const StatusIcon = statusCfg.icon;
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="max-w-4xl mx-auto w-full space-y-8">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">

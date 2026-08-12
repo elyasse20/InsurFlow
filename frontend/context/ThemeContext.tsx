@@ -19,7 +19,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   // On mount: read persisted preference and apply class immediately
   useEffect(() => {
-    const saved = localStorage.getItem('yk-theme') as Theme | null;
+    const saved = localStorage.getItem('insurflow-theme') as Theme | null;
     const resolved: Theme = saved ?? 'light';
     setTheme(resolved);
     applyTheme(resolved);
@@ -37,7 +37,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const toggleTheme = () => {
     setTheme(prev => {
       const next: Theme = prev === 'light' ? 'dark' : 'light';
-      localStorage.setItem('yk-theme', next);
+      localStorage.setItem('insurflow-theme', next);
       applyTheme(next);
       return next;
     });

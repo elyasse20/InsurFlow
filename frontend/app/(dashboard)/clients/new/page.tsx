@@ -120,7 +120,7 @@ export default function NewClientPage() {
       fd.append('data', jsonBlob);
       if (file) fd.append('doc', file);
 
-      await api.post<Client>('/clients', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await api.post<Client>('/clients', fd);
       router.push('/clients');
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Erreur lors de la création');
@@ -130,8 +130,8 @@ export default function NewClientPage() {
   };
 
   return (
-    <div className="max-w-2xl space-y-8">
-      {/* Header */}
+    <div className="max-w-2xl mx-auto w-full space-y-8">
+      {/* Header — Nouveau client */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
           <ArrowLeft className="w-4 h-4" />
@@ -143,11 +143,11 @@ export default function NewClientPage() {
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Nouveau client</h1>
           </div>
-          <p className="text-sm text-muted-foreground pl-10">Remplissez les informations du client</p>
+          <p className="text-sm text-muted-foreground pl-10">Créer une nouvelle fiche client</p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="rounded-xl border border-border bg-card shadow-sm p-8 space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6">
         {error && (
           <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-red-400 rounded-xl px-4 py-3 text-sm">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -162,7 +162,7 @@ export default function NewClientPage() {
             {(['particulier', 'societe'] as ClientType[]).map(t => (
               <button key={t} type="button" onClick={() => setType(t)}
                 className={cn(
-                  'flex items-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium border-2 transition-all duration-200',
+                  'flex items-center justify-center gap-2.5 py-3 px-4 rounded-xl text-sm font-medium border-2 transition-all duration-200',
                   type === t
                     ? 'border-primary bg-primary/10 text-primary'
                     : 'border-border bg-muted/30 text-muted-foreground hover:border-border/80 hover:text-foreground'
@@ -176,35 +176,37 @@ export default function NewClientPage() {
 
         <Separator />
 
-        {/* Common fields */}
-        <div className="space-y-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Informations générales</p>
-          <FieldRow label="Nom" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Nom du client" />
-          <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 6XX XXX XXX" />
-          <FieldRow label="Adresse" id="adresse" value={form.adresse} onChange={set('adresse')} required placeholder="Adresse complète" />
-        </div>
-
+        {/* Particulier fields */}
         {type === 'particulier' && (
-          <>
-            <Separator />
-            <div className="space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identité personnelle</p>
+          <div className="space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identité & Coordonnées</p>
+            <div className="grid grid-cols-2 gap-4">
+              <FieldRow label="Nom" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Nom" />
               <FieldRow label="Prénom" id="prenom" value={form.prenom} onChange={set('prenom')} required placeholder="Prénom" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 6XX XXX XXX" />
               <FieldRow label="CIN" id="cin" value={form.cin} onChange={set('cin')} required placeholder="A123456" />
             </div>
-          </>
+            <FieldRow label="Adresse" id="adresse" value={form.adresse} onChange={set('adresse')} required placeholder="Adresse complète" />
+          </div>
         )}
 
+        {/* Société fields */}
         {type === 'societe' && (
-          <>
-            <Separator />
-            <div className="space-y-4">
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Informations légales</p>
-              <FieldRow label="ICE (15 chiffres)" id="ice" value={form.ice} onChange={set('ice')} required maxLength={15} pattern="^\d{15}$" placeholder="000000000000000" />
-              <FieldRow label="Identifiant Fiscal" id="if" value={form.identifiantFiscal} onChange={set('identifiantFiscal')} required placeholder="Identifiant fiscal" />
-              <FieldRow label="RC" id="rc" value={form.rc} onChange={set('rc')} required placeholder="Registre de commerce" />
+          <div className="space-y-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Raison Sociale & Informations Légales</p>
+            <FieldRow label="Nom de la Société" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Raison sociale / Nom société" />
+            <div className="grid grid-cols-2 gap-4">
+              <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 5XX XXX XXX" />
+              <FieldRow label="RC (Registre commerce)" id="rc" value={form.rc} onChange={set('rc')} required placeholder="RC N°" />
             </div>
-          </>
+            <div className="grid grid-cols-2 gap-4">
+              <FieldRow label="ICE (15 chiffres)" id="ice" value={form.ice} onChange={set('ice')} required maxLength={15} pattern="^\d{15}$" placeholder="000000000000000" />
+              <FieldRow label="Identifiant Fiscal (IF)" id="if" value={form.identifiantFiscal} onChange={set('identifiantFiscal')} required placeholder="IF N°" />
+            </div>
+            <FieldRow label="Adresse du siège" id="adresse" value={form.adresse} onChange={set('adresse')} required placeholder="Adresse du siège social" />
+          </div>
         )}
 
         <Separator />

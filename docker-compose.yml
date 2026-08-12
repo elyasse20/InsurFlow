@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: insurflow_mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - insurflow_net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: insurflow_backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - MONGO_URI=mongodb://mongodb:27017/assurance
+      - JWT_SECRET=changeme_super_secret_key_at_least_32_chars_long
+      - CORS_ORIGINS=http://localhost:3000
+      - UPLOADS_DIR=./uploads
+      - ADMIN_EMAIL=admin@insurflow.com
+      - ADMIN_PASSWORD=admin123
+      - ADMIN_USERNAME=admin
+    depends_on:
+      - mongodb
+    networks:
+      - insurflow_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: insurflow_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api
+    depends_on:
+      - backend
+    networks:
+      - insurflow_net
+
+volumes:
+  mongo_data:
+
+networks:
+  insurflow_net:
+    driver: bridge

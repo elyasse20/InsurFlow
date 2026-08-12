@@ -1,5 +1,5 @@
 /**
- * Formatting utilities for the YK Software insurance app.
+ * Formatting utilities for the InsurFlow insurance app.
  */
 
 /** Locale used for all number formatting */

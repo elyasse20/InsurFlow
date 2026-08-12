@@ -81,15 +81,15 @@ export default function EditCompagnePage() {
   };
 
   if (loading) return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-3xl mx-auto w-full space-y-6">
       <div className="h-12 bg-muted/30 rounded-xl animate-pulse" />
       <div className="h-48 bg-muted/30 rounded-xl animate-pulse" />
     </div>
   );
 
   return (
-    <div className="max-w-3xl space-y-8">
-      {/* Header */}
+    <div className="max-w-3xl mx-auto w-full space-y-8">
+      {/* Header — Modifier la compagnie */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
           <ArrowLeft className="w-4 h-4" />
@@ -115,7 +115,7 @@ export default function EditCompagnePage() {
 
         {/* Company name */}
         <div className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-3">
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 sm:max-w-md">
             <Label htmlFor="compagneName">Nom de la compagnie <span className="text-destructive">*</span></Label>
             <Input
               id="compagneName"

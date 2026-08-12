@@ -147,3 +147,10 @@ export interface Nature { id: string; name: string; }
 export interface Category { id: string; name: string; commissionRate: number; }
 export interface Parametre { id: string; name: string; value?: string; type?: string; }
 export interface Tva { id: string; name: string; rate: number; }
+
+export interface ReferentielsResponse {
+  categories: Category[];
+  natures: Nature[];
+  parametres: Parametre[];
+  tvas: Tva[];
+}

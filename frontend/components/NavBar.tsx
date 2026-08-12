@@ -53,7 +53,7 @@ export default function NavBar() {
             <Shield className="text-white w-4 h-4" />
           </div>
           <div>
-            <span className="text-foreground font-bold text-base leading-none">YK Assurance</span>
+            <span className="text-foreground font-bold text-base leading-none">InsurFlow</span>
             <p className="text-muted-foreground text-[10px] mt-0.5 font-medium uppercase tracking-wider">
               Gestion Pro
             </p>

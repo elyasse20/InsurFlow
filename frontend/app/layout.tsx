@@ -7,7 +7,7 @@ import { ThemeProvider } from '@/context/ThemeContext';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Assurance YK Software',
+  title: 'InsurFlow',
   description: 'Système de gestion des assurances',
 };
 
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 const themeInitScript = `
 (function() {
   try {
-    var t = localStorage.getItem('yk-theme');
+    var t = localStorage.getItem('insurflow-theme');
     if (t === 'dark') {
       document.documentElement.classList.add('dark');
     }

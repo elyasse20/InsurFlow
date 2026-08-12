@@ -66,7 +66,7 @@ export async function exportToPDF(
   doc.setFontSize(9);
   doc.setTextColor(100, 116, 139); // muted
   doc.text(
-    `Exporté le ${new Date().toLocaleDateString('fr-MA', { day: '2-digit', month: 'long', year: 'numeric' })}  —  YK Software`,
+    `Exporté le ${new Date().toLocaleDateString('fr-MA', { day: '2-digit', month: 'long', year: 'numeric' })}  —  InsurFlow`,
     14,
     26
   );

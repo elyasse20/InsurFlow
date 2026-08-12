@@ -173,15 +173,15 @@ export default function EditOperationPage() {
   };
 
   if (loading) return (
-    <div className="max-w-4xl space-y-6">
+    <div className="max-w-5xl mx-auto w-full space-y-6">
       <div className="h-12 bg-muted/30 rounded-xl animate-pulse" />
       <div className="h-48 bg-muted/30 rounded-xl animate-pulse" />
     </div>
   );
 
   return (
-    <div className="max-w-4xl space-y-8">
-      {/* Header */}
+    <div className="max-w-5xl mx-auto w-full space-y-8">
+      {/* Header — Modifier l'opération */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
           <ArrowLeft className="w-4 h-4" />
@@ -209,7 +209,7 @@ export default function EditOperationPage() {
         <div className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-6">
           <h2 className="text-base font-semibold text-foreground">Informations générales</h2>
           <Separator />
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <FieldRow label="Nature" id="nature">
               <StyledSelect id="nature" value={form.natureOperation} onChange={setF('natureOperation')} required>
                 <option value="">-- Sélectionner --</option>

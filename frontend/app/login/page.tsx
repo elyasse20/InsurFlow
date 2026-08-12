@@ -49,7 +49,7 @@ export default function LoginPage() {
               <Shield className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground tracking-tight">YK Assurance</h1>
+              <h1 className="text-3xl font-bold text-foreground tracking-tight">InsurFlow</h1>
               <p className="text-muted-foreground text-sm mt-1">Système de gestion des assurances</p>
             </div>
           </div>
@@ -113,7 +113,7 @@ export default function LoginPage() {
         </div>
 
         <p className="text-center text-xs text-muted-foreground/50 mt-6">
-          © 2024 YK Software — Tous droits réservés
+          © 2024 InsurFlow — Tous droits réservés
         </p>
       </div>
     </div>

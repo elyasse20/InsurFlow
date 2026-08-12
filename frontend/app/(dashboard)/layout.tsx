@@ -30,7 +30,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex min-h-screen bg-background">
       <NavBar />
       <main className="flex-1 ml-64 min-h-screen overflow-y-auto">
-        <div className="max-w-screen-2xl mx-auto px-10 py-10">
+        <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8 w-full space-y-8">
           {children}
         </div>
       </main>

@@ -1,9 +1,9 @@
-# Assurance YK Software — Monorepo
+# InsurFlow — Monorepo
 
 Full-stack insurance management system migrated from **Node.js + React (Vite)** to **Spring Boot (Java) + Next.js (TypeScript)**.
 
 ```
-assurance_yksoftware/
+InsurFlow/
 ├── backend/        ← Spring Boot 3.3 REST API (port 8080)
 └── frontend/       ← Next.js 15 App Router UI (port 3000)
 ```
@@ -49,7 +49,7 @@ mvn spring-boot:run
 The backend starts on **http://localhost:8080**.
 
 On first startup it auto-creates the default admin user:
-- Email: `admin@yksoftware.com`
+- Email: `admin@insurflow.com`
 - Password: `admin123`
 
 > ⚠️ Change `ADMIN_PASSWORD` in production!
@@ -80,7 +80,7 @@ The frontend starts on **http://localhost:3000**.
 | `JWT_SECRET` | `changeme_super_secret_key_at_least_32_chars_long` | JWT signing key |
 | `CORS_ORIGINS` | `http://localhost:3000` | Allowed frontend origins |
 | `UPLOADS_DIR` | `./uploads` | File upload directory |
-| `ADMIN_EMAIL` | `admin@yksoftware.com` | Initial admin email |
+| `ADMIN_EMAIL` | `admin@insurflow.com` | Initial admin email |
 | `ADMIN_PASSWORD` | `admin123` | Initial admin password |
 | `ADMIN_USERNAME` | `admin` | Initial admin username |
 

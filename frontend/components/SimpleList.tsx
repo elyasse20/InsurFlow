@@ -34,12 +34,23 @@ interface Props {
   icon?: React.ReactNode;
   extraFields?: ExtraField[];
   fixedPayload?: Record<string, any>;
+  initialData?: SimpleItem[];
+  onRefresh?: () => void;
 }
 
 /**
  * Modernized reusable CRUD list for simple lookup items (Nature, Category, Parametre, TVA).
  */
-export default function SimpleList({ title, itemLabel, endpoint, icon, extraFields = [], fixedPayload = {} }: Props) {
+export default function SimpleList({
+  title,
+  itemLabel,
+  endpoint,
+  icon,
+  extraFields = [],
+  fixedPayload = {},
+  initialData,
+  onRefresh,
+}: Props) {
   const [items, setItems] = useState<SimpleItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -57,7 +68,22 @@ export default function SimpleList({ title, itemLabel, endpoint, icon, extraFiel
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { fetchAll(); }, [endpoint]);
+  useEffect(() => {
+    if (initialData !== undefined) {
+      setItems(initialData);
+      setLoading(false);
+    } else {
+      fetchAll();
+    }
+  }, [initialData, endpoint]);
+
+  const refreshData = () => {
+    if (onRefresh) {
+      onRefresh();
+    } else {
+      fetchAll();
+    }
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -74,7 +100,7 @@ export default function SimpleList({ title, itemLabel, endpoint, icon, extraFiel
       await api.post(`/${endpoint}`, { name: newName, ...extraPayload, ...fixedPayload });
       setNewName('');
       setNewExtra({});
-      fetchAll();
+      refreshData();
     } catch (err: any) {
       setError(err.response?.data?.message ?? 'Erreur lors de la création');
     }
@@ -97,7 +123,7 @@ export default function SimpleList({ title, itemLabel, endpoint, icon, extraFiel
       extraFields.forEach(f => { payload[f.key] = editValues[f.key]; });
       await api.put(`/${endpoint}/${id}`, { ...payload, ...fixedPayload });
       setEditingId(null);
-      fetchAll();
+      refreshData();
     } catch (err: any) {
       setSaveError(err.response?.data?.message ?? 'Erreur lors de la mise à jour');
     }
@@ -106,6 +132,7 @@ export default function SimpleList({ title, itemLabel, endpoint, icon, extraFiel
   const handleDelete = async (id: string) => {
     await api.delete(`/${endpoint}/${id}`);
     setItems(prev => prev.filter(i => i.id !== id));
+    refreshData();
   };
 
   return (
@@ -139,8 +166,8 @@ export default function SimpleList({ title, itemLabel, endpoint, icon, extraFiel
           </div>
         )}
 
-        <form onSubmit={handleCreate} className="flex gap-3 flex-wrap">
-          <div className="flex-1 min-w-[180px]">
+        <form onSubmit={handleCreate} className="flex gap-3 flex-wrap items-center">
+          <div className="flex-1 min-w-[200px] max-w-md">
             <Label htmlFor="new-name" className="sr-only">Nom</Label>
             <Input
               id="new-name"
@@ -153,7 +180,7 @@ export default function SimpleList({ title, itemLabel, endpoint, icon, extraFiel
             />
           </div>
           {extraFields.map(f => (
-            <div key={f.key} className="min-w-[140px]">
+            <div key={f.key} className="w-44 min-w-[140px]">
               <Label htmlFor={`new-${f.key}`} className="sr-only">{f.label}</Label>
               {f.type === 'select' ? (
                 <select

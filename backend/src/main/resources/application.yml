@@ -17,11 +17,11 @@ app:
   uploads-dir: ${UPLOADS_DIR:./uploads}
   cors-origins: ${CORS_ORIGINS:http://localhost:3000}
   admin:
-    email: ${ADMIN_EMAIL:admin@yksoftware.com}
+    email: ${ADMIN_EMAIL:admin@insurflow.com}
     password: ${ADMIN_PASSWORD:admin123}
     username: ${ADMIN_USERNAME:admin}
 
 logging:
   level:
-    com.yksoftware.assurance: DEBUG
+    com.insurflow.assurance: DEBUG
     org.springframework.security: INFO

@@ -151,8 +151,8 @@ export default function NewOperationPage() {
   };
 
   return (
-    <div className="max-w-4xl space-y-8">
-      {/* Header */}
+    <div className="max-w-5xl mx-auto w-full space-y-8">
+      {/* Header — Nouvelle opération */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
           <ArrowLeft className="w-4 h-4" />
@@ -180,7 +180,7 @@ export default function NewOperationPage() {
         <div className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-6">
           <h2 className="text-base font-semibold text-foreground">Informations générales</h2>
           <Separator />
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <FieldRow label="Nature" id="nature">
               <StyledSelect id="nature" value={form.natureOperation} onChange={setF('natureOperation')} required>
                 <option value="">-- Sélectionner --</option>

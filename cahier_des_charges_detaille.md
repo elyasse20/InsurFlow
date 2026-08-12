@@ -1,10 +1,10 @@
 # CAHIER DES CHARGES DÉTAILLÉ (CDC)
 
-**Projet :** YK Assurance — Système de Gestion Globale de Production, Règlements et Exercices Comptables d'Assurance  
+**Projet :** InsurFlow — Système de Gestion Globale de Production, Règlements et Exercices Comptables d'Assurance  
 **Version :** 2.1 (Intégration Complète du Module Exercice Comptable)  
 **Statut :** Spécifications Détaillées Validées & Implémentées  
 **Date :** Juillet 2026  
-**Auteur :** Équipe d'Ingénierie & Architecture Système YK Software  
+**Auteur :** Équipe d'Ingénierie & Architecture Système InsurFlow  
 
 ---
 
@@ -13,7 +13,7 @@
 ### 1.1 Contexte Général
 Le secteur du courtage et de l'agence d'assurance nécessite une traçabilité rigoureuse des contrats émis (polices d'assurance), des primes d'assurances collectées, du commissionnement et des flux financiers aussi bien au niveau des clients souscripteurs qu'au niveau des compagnies d'assurances partenaires (CIE).
 
-Le projet **YK Assurance** est issu de la refonte globale et modernisation d'un outil legacy (Node.js/React) vers une solution applicative d'entreprise robuste, évolutive et sécurisée, basée sur **Spring Boot 3.3 (Java 21)** pour le backend REST et **Next.js 15 (TypeScript)** pour le frontend web.
+Le projet **InsurFlow** est issu de la refonte globale et modernisation d'un outil legacy (Node.js/React) vers une solution applicative d'entreprise robuste, évolutive et sécurisée, basée sur **Spring Boot 3.3 (Java 21)** pour le backend REST et **Next.js 15 (TypeScript)** pour le frontend web.
 
 ### 1.2 Objectifs Stratégiques & Opérationnels
 1. **Digitalisation & Centralisation :** Offrir une plateforme unique pour la gestion du portefeuille clients (Particuliers & Sociétés), des polices d'assurance et des encaissements/décaissements.

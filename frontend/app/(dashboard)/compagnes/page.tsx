@@ -64,8 +64,8 @@ export default function CompagnesPage() {
   };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
+    <div className="max-w-4xl mx-auto w-full space-y-8">
+      {/* Header — Compagnies list */}
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
