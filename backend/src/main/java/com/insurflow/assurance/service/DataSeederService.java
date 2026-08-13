@@ -23,6 +23,7 @@ public class DataSeederService {
     private final ReglementRepository reglementRepository;
     private final ParametreRepository parametreRepository;
     private final TvaRepository tvaRepository;
+    private final InvoiceService invoiceService;
 
     /**
      * Seeds realistic Moroccan insurance data into MongoDB.
@@ -181,6 +182,11 @@ public class DataSeederService {
                         .build();
 
                 reglements.add(reglementRepository.save(reglement));
+
+                // Generate matching invoice
+                try {
+                    invoiceService.generateInvoiceForOperation(savedProd.getId());
+                } catch (Exception ignored) {}
 
                 policyCounter++;
             }

@@ -5,9 +5,10 @@ import { useRouter } from 'next/navigation';
 import {
   FileText, Plus, Edit2, Trash2, CreditCard, RefreshCw,
   TrendingUp, Calendar, Building2, Hash, Filter, X,
-  FileDown, FileSpreadsheet, Search,
+  FileDown, FileSpreadsheet, Search, Receipt,
 } from 'lucide-react';
 import api from '@/lib/api';
+import API_BASE_URL from '@/lib/config';
 import { Production, Compagne, Category } from '@/types';
 import { formatMoisDem, formatAmount } from '@/lib/format';
 import { exportToCSV, exportToPDF, ExportColumn } from '@/lib/export';
@@ -396,6 +397,22 @@ export default function OperationsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex items-center justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10"
+                        onClick={async () => {
+                          try {
+                            const res = await api.post(`/invoices/generate/${prod.id}`);
+                            window.open(`${API_BASE_URL}/invoices/${res.data.id}/pdf`, '_blank');
+                          } catch {
+                            alert("Erreur lors de la génération de la facture PDF");
+                          }
+                        }}
+                        title="Voir / Télécharger Facture PDF"
+                      >
+                        <Receipt className="w-3.5 h-3.5" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10"
                         onClick={() => router.push(`/regelements/${prod.id}`)} title="Règlement">
                         <CreditCard className="w-3.5 h-3.5" />

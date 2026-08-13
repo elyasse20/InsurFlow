@@ -154,3 +154,29 @@ export interface ReferentielsResponse {
   parametres: Parametre[];
   tvas: Tva[];
 }
+
+// ─── Invoice ──────────────────────────────────────────────────────────────────
+export type InvoiceType = 'STANDARD' | 'PROFORMA' | 'AVOIR';
+export type InvoiceStatusType = 'PAID' | 'PARTIAL' | 'UNPAID';
+
+export interface Invoice {
+  id: string;
+  invoiceNumber: string;
+  operationId?: string;
+  clientName: string;
+  policyNumber?: string;
+  compagne?: string;
+  category?: string;
+  amountHT: number;
+  tvaRate: number;
+  tvaAmount: number;
+  amountTTC: number;
+  paidAmount: number;
+  remainingAmount: number;
+  type: InvoiceType;
+  status: InvoiceStatusType;
+  dueDate?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}

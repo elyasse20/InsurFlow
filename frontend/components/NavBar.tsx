@@ -6,7 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
 import {
   Users, Shield, List, Settings, LogOut,
-  DollarSign, Tag, Percent, FileText,
+  DollarSign, Tag, Percent, FileText, FileCheck,
   LayoutDashboard, ChevronRight, Sun, Moon, Database,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -20,6 +20,7 @@ const navGroups = [
       { href: '/dashboard',      label: 'Dashboard',     icon: LayoutDashboard, adminOnly: false },
       { href: '/clients',        label: 'Clients',       icon: Users,           adminOnly: false },
       { href: '/operations',     label: 'Opérations',    icon: FileText,        adminOnly: false },
+      { href: '/factures',       label: 'Factures',      icon: FileCheck,       adminOnly: false },
       { href: '/compagnes',      label: 'Compagnes',     icon: Shield,          adminOnly: false },
       { href: '/credit-history', label: 'Crédits',       icon: DollarSign,      adminOnly: false },
     ],
