@@ -21,6 +21,18 @@ app:
     password: ${ADMIN_PASSWORD:admin123}
     username: ${ADMIN_USERNAME:admin}
 
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
 logging:
   level:
     com.insurflow.assurance: DEBUG
