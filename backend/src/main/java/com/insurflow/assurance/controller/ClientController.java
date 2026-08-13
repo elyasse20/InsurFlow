@@ -1,7 +1,9 @@
 package com.insurflow.assurance.controller;
 
+import com.insurflow.assurance.dto.CinScanResultDto;
 import com.insurflow.assurance.dto.ClientRequest;
 import com.insurflow.assurance.model.Client;
+import com.insurflow.assurance.service.CinOcrService;
 import com.insurflow.assurance.service.ClientService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -24,6 +26,15 @@ import java.util.Map;
 public class ClientController {
 
     private final ClientService clientService;
+    private final CinOcrService cinOcrService;
+
+    /**
+     * POST /api/clients/scan-cin — AI OCR document scanner for Moroccan CIN / Permis cards.
+     */
+    @PostMapping(value = "/scan-cin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<CinScanResultDto> scanCin(@RequestParam("file") MultipartFile file) {
+        return ResponseEntity.ok(cinOcrService.scanCinDocument(file));
+    }
 
     /** GET /api/clients?nom= — equivalent of getClients */
     @GetMapping
