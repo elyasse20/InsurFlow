@@ -3,7 +3,6 @@ package com.insurflow.assurance.model;
 import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
-import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 import java.time.LocalDate;
@@ -23,7 +22,6 @@ public class Notification {
     @Id
     private String id;
 
-    @Indexed
     private String policyNumber;
 
     private String clientName;

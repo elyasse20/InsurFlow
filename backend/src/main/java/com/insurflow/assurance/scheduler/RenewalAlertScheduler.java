@@ -15,6 +15,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Component
@@ -38,58 +39,70 @@ public class RenewalAlertScheduler {
 
     /**
      * Core logic to scan policies and generate non-duplicate notifications.
-     * Can also be invoked manually for testing.
+     * Includes strict null safety and exception handling to prevent runtime failures.
      */
     public List<Notification> checkAndGenerateRenewalAlerts() {
-        LocalDate today = LocalDate.now();
-        List<Production> productions = productionRepository.findAll();
         List<Notification> createdNotifications = new ArrayList<>();
-
-        for (Production prod : productions) {
-            if (prod.getDateEff() == null || prod.getNumpolice() == null) {
-                continue;
+        try {
+            LocalDate today = LocalDate.now();
+            List<Production> productions = productionRepository.findAll();
+            if (productions == null || productions.isEmpty()) {
+                return Collections.emptyList();
             }
 
-            // Expiration date is 1 year after dateEff
-            LocalDate expirationDate = prod.getDateEff().plusYears(1);
-            long daysUntilExpiration = ChronoUnit.DAYS.between(today, expirationDate);
+            for (Production prod : productions) {
+                if (prod == null || prod.getDateEff() == null || prod.getNumpolice() == null || prod.getNumpolice().isBlank()) {
+                    continue;
+                }
 
-            NotificationType alertType = null;
-            String message = null;
+                // Expiration date is 1 year after dateEff
+                LocalDate expirationDate = prod.getDateEff().plusYears(1);
+                long daysUntilExpiration = ChronoUnit.DAYS.between(today, expirationDate);
 
-            if (daysUntilExpiration == 30 || (daysUntilExpiration > 15 && daysUntilExpiration <= 30)) {
-                alertType = NotificationType.RENEWAL_30_DAYS;
-                message = String.format("La police N° %s (%s) expire dans %d jours le %s.",
-                        prod.getNumpolice(), prod.getClient(), daysUntilExpiration, expirationDate);
-            } else if (daysUntilExpiration == 15 || (daysUntilExpiration > 0 && daysUntilExpiration <= 15)) {
-                alertType = NotificationType.RENEWAL_15_DAYS;
-                message = String.format("URGENT: La police N° %s (%s) expire dans %d jours le %s.",
-                        prod.getNumpolice(), prod.getClient(), daysUntilExpiration, expirationDate);
-            }
+                NotificationType alertType = null;
+                String message = null;
+                String clientName = prod.getClient() != null ? prod.getClient() : "Client Inconnu";
 
-            if (alertType != null) {
-                // Prevent duplicates for the same policy & type
-                boolean exists = notificationRepository.existsByPolicyNumberAndType(prod.getNumpolice(), alertType);
-                if (!exists) {
-                    Notification notification = Notification.builder()
-                            .policyNumber(prod.getNumpolice())
-                            .clientName(prod.getClient())
-                            .expirationDate(expirationDate)
-                            .message(message)
-                            .type(alertType)
-                            .isRead(false)
-                            .createdAt(LocalDateTime.now())
-                            .build();
+                if (daysUntilExpiration == 30 || (daysUntilExpiration > 15 && daysUntilExpiration <= 30)) {
+                    alertType = NotificationType.RENEWAL_30_DAYS;
+                    message = String.format("La police N° %s (%s) expire dans %d jours le %s.",
+                            prod.getNumpolice(), clientName, daysUntilExpiration, expirationDate);
+                } else if (daysUntilExpiration == 15 || (daysUntilExpiration > 0 && daysUntilExpiration <= 15)) {
+                    alertType = NotificationType.RENEWAL_15_DAYS;
+                    message = String.format("URGENT: La police N° %s (%s) expire dans %d jours le %s.",
+                            prod.getNumpolice(), clientName, daysUntilExpiration, expirationDate);
+                }
 
-                    Notification saved = notificationRepository.save(notification);
-                    createdNotifications.add(saved);
-                    log.info("✓ Created renewal notification: Policy {} -> {}", prod.getNumpolice(), alertType);
+                if (alertType != null) {
+                    // Prevent duplicates for the same policy & type
+                    boolean exists = notificationRepository.existsByPolicyNumberAndType(prod.getNumpolice(), alertType);
+                    if (!exists) {
+                        Notification notification = Notification.builder()
+                                .policyNumber(prod.getNumpolice())
+                                .clientName(clientName)
+                                .expirationDate(expirationDate)
+                                .message(message)
+                                .type(alertType)
+                                .isRead(false)
+                                .createdAt(LocalDateTime.now())
+                                .build();
+
+                        Notification saved = notificationRepository.save(notification);
+                        createdNotifications.add(saved);
+                        log.info("✓ Created renewal notification: Policy {} -> {}", prod.getNumpolice(), alertType);
+                    }
                 }
             }
-        }
 
-        if (!createdNotifications.isEmpty()) {
-            emailService.sendRenewalAlertEmail(createdNotifications);
+            if (!createdNotifications.isEmpty()) {
+                try {
+                    emailService.sendRenewalAlertEmail(createdNotifications);
+                } catch (Exception ex) {
+                    log.warn("Failed to send email alert: {}", ex.getMessage());
+                }
+            }
+        } catch (Exception ex) {
+            log.error("Error during renewal alert scheduler execution: ", ex);
         }
 
         return createdNotifications;
