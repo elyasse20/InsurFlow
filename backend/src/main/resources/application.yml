@@ -37,3 +37,7 @@ logging:
   level:
     com.insurflow.assurance: DEBUG
     org.springframework.security: INFO
+
+
+tesseract:
+  datapath: /usr/share/tessdata

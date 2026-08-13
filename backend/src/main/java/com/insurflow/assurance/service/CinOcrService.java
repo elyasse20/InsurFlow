@@ -45,8 +45,8 @@ public class CinOcrService {
         try {
             tempFile = convertMultipartToFile(file);
             ocrText = performOcr(tempFile);
-        } catch (Exception e) {
-            log.error("Failed to perform Tesseract OCR scan on file: {}", file.getOriginalFilename(), e);
+        } catch (Throwable t) {
+            log.error("Failed to perform Tesseract OCR scan on file: {}", file.getOriginalFilename(), t);
         } finally {
             if (tempFile != null && tempFile.exists()) {
                 boolean deleted = tempFile.delete();
@@ -71,14 +71,21 @@ public class CinOcrService {
         return tempFile;
     }
 
-    private String performOcr(File imageFile) throws TesseractException {
-        ITesseract tesseract = new Tesseract();
+    private String performOcr(File imageFile) {
+        try {
+            ITesseract tesseract = new Tesseract();
 
-        if (tessDataPath != null && !tessDataPath.isBlank()) {
-            tesseract.setDatapath(tessDataPath);
+            if (tessDataPath != null && !tessDataPath.isBlank()) {
+                tesseract.setDatapath(tessDataPath);
+            } else {
+                tesseract.setDatapath("/usr/share/tessdata");
+            }
+
+            return tesseract.doOCR(imageFile);
+        } catch (Throwable t) {
+            log.warn("Tesseract OCR processing failed (falling back to empty response): {}", t.getMessage());
+            return "";
         }
-
-        return tesseract.doOCR(imageFile);
     }
 
     private CinScanResultDto parseOcrText(String text) {
