@@ -2,13 +2,17 @@ package com.insurflow.assurance.service;
 
 import com.insurflow.assurance.dto.CinScanResultDto;
 import lombok.extern.slf4j.Slf4j;
+import net.sourceforge.tess4j.ITesseract;
+import net.sourceforge.tess4j.Tesseract;
+import net.sourceforge.tess4j.TesseractException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.Random;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -16,99 +20,133 @@ import java.util.regex.Pattern;
 @Slf4j
 public class CinOcrService {
 
-    private static final Pattern CIN_PATTERN = Pattern.compile("(?i)\\b([A-Z]{1,2}\\s*\\d{5,6})\\b");
+    @Value("${tesseract.datapath:}")
+    private String tessDataPath;
+
+    // Regex Patterns for Moroccan CIN Extraction
+    private static final Pattern CIN_PATTERN = Pattern.compile("(?i)\\b([A-Z]{1,2}[0-9]{4,6})\\b");
     private static final Pattern NOM_PATTERN = Pattern.compile("(?i)(?:NOM|LASTNAME|NOM\\s*:\\s*)([A-Z\\s-]{2,30})");
-    private static final Pattern PRENOM_PATTERN = Pattern.compile("(?i)(?:PRENOM|FIRSTNAME|PRENOM\\s*:\\s*)([A-Z\\s-]{2,30})");
+    private static final Pattern PRENOM_PATTERN = Pattern.compile("(?i)(?:PRENOM|PRÉNOM|FIRSTNAME|PRENOM\\s*:\\s*)([A-Z\\s-]{2,30})");
     private static final Pattern DATE_PATTERN = Pattern.compile("\\b(\\d{2}[\\./\\-]\\d{2}[\\./\\-]\\d{4})\\b");
 
-    // Realistic Moroccan mock data pool for OCR fallback simulation
-    private static final String[][] MOROCCAN_SAMPLES = {
-            {"AB654321", "EL MANSOURI", "Youssef", "123 Bd Zerktouni, Casablanca", "1990-05-15"},
-            {"CD987654", "CHRAIBI", "Fatima-Zohra", "45 Avenue Hassan II, Rabat", "1994-11-20"},
-            {"BE456789", "BENJELLOUN", "Karim", "12 Rue de la Liberté, Tanger", "1988-03-10"},
-            {"G789012", "EL AMRANI", "Amina", "88 Avenue Mohammed V, Marrakech", "1992-08-25"},
-            {"K345678", "BERRADA", "Tariq", "14 Rue Allal Ben Abdellah, Fès", "1985-12-04"},
-            {"HA123987", "NACIRI", "Houda", "30 Boulevard Hassan II, Agadir", "1996-07-18"},
-    };
-
     /**
-     * Extracts structured Moroccan CIN details from an uploaded ID image or PDF.
+     * Performs Tesseract OCR scanning on an uploaded CIN image/file
+     * and extracts fields dynamically via Regex.
      */
     public CinScanResultDto scanCinDocument(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File cannot be empty");
         }
 
-        log.info("Processing AI OCR scan for CIN file: {} (size: {} bytes)", file.getOriginalFilename(), file.getSize());
+        log.info("Processing Tesseract OCR scan for file: {} (size: {} bytes)", file.getOriginalFilename(), file.getSize());
 
-        String textContent = extractTextFromFile(file);
-        CinScanResultDto result = parseTextWithRegex(textContent);
+        File tempFile = null;
+        String ocrText = "";
+        try {
+            tempFile = convertMultipartToFile(file);
+            ocrText = performOcr(tempFile);
+        } catch (Exception e) {
+            log.error("Failed to perform Tesseract OCR scan on file: {}", file.getOriginalFilename(), e);
+        } finally {
+            if (tempFile != null && tempFile.exists()) {
+                boolean deleted = tempFile.delete();
+                if (!deleted) {
+                    tempFile.deleteOnExit();
+                }
+            }
+        }
 
-        // Fallback to Moroccan CIN sample if image OCR is unparseable or binary
-        if (result.getCin() == null || result.getCin().isBlank()) {
-            log.info("Applying Moroccan CIN pattern recognition heuristics...");
-            int index = Math.abs(file.getOriginalFilename().hashCode()) % MOROCCAN_SAMPLES.length;
-            String[] sample = MOROCCAN_SAMPLES[index];
+        return parseOcrText(ocrText);
+    }
 
-            result = CinScanResultDto.builder()
-                    .cin(sample[0])
-                    .nom(sample[1])
-                    .prenom(sample[2])
-                    .adresse(sample[3])
-                    .dateNaissance(sample[4])
-                    .confidence(0.94)
+    private File convertMultipartToFile(MultipartFile file) throws IOException {
+        String originalFilename = file.getOriginalFilename();
+        String extension = ".tmp";
+        if (originalFilename != null && originalFilename.contains(".")) {
+            extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+        }
+
+        File tempFile = File.createTempFile("cin_ocr_", extension);
+        Files.copy(file.getInputStream(), tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+        return tempFile;
+    }
+
+    private String performOcr(File imageFile) throws TesseractException {
+        ITesseract tesseract = new Tesseract();
+
+        if (tessDataPath != null && !tessDataPath.isBlank()) {
+            tesseract.setDatapath(tessDataPath);
+        }
+
+        return tesseract.doOCR(imageFile);
+    }
+
+    private CinScanResultDto parseOcrText(String text) {
+        if (text == null || text.isBlank()) {
+            return CinScanResultDto.builder()
+                    .cin("")
+                    .nom("")
+                    .prenom("")
+                    .adresse("")
+                    .dateNaissance("")
+                    .confidence(0.0)
                     .build();
         }
 
-        log.info("✓ AI OCR scan completed successfully: CIN={}, Nom={} {}", result.getCin(), result.getNom(), result.getPrenom());
-        return result;
-    }
+        String cin = extractPattern(text, CIN_PATTERN);
+        String nom = extractPattern(text, NOM_PATTERN);
+        String prenom = extractPattern(text, PRENOM_PATTERN);
+        String dateNaissance = extractPattern(text, DATE_PATTERN);
 
-    private String extractTextFromFile(MultipartFile file) {
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
-            StringBuilder sb = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) {
-                sb.append(line).append("\n");
+        // Fallback for Nom/Prenom by scanning lines if labeled regexes didn't match
+        if (nom.isEmpty() || prenom.isEmpty()) {
+            String[] lines = text.split("\\r?\\n");
+            for (String line : lines) {
+                line = line.trim();
+                String upperLine = line.toUpperCase();
+                if (nom.isEmpty() && upperLine.startsWith("NOM")) {
+                    nom = cleanFieldValue(line.replaceFirst("(?i)NOM\\s*:?", ""));
+                } else if (prenom.isEmpty() && (upperLine.startsWith("PRENOM") || upperLine.startsWith("PRÉNOM"))) {
+                    prenom = cleanFieldValue(line.replaceFirst("(?i)PRÉ?NOM\\s*:?", ""));
+                }
             }
-            return sb.toString();
-        } catch (Exception e) {
-            return "";
-        }
-    }
-
-    private CinScanResultDto parseTextWithRegex(String text) {
-        String cin = null;
-        String nom = null;
-        String prenom = null;
-        String dateNaissance = null;
-
-        Matcher cinMatcher = CIN_PATTERN.matcher(text);
-        if (cinMatcher.find()) {
-            cin = cinMatcher.group(1).replaceAll("\\s+", "").toUpperCase();
         }
 
-        Matcher nomMatcher = NOM_PATTERN.matcher(text);
-        if (nomMatcher.find()) {
-            nom = nomMatcher.group(1).trim().toUpperCase();
-        }
+        double confidence = calculateConfidence(cin, nom, prenom);
 
-        Matcher prenomMatcher = PRENOM_PATTERN.matcher(text);
-        if (prenomMatcher.find()) {
-            prenom = prenomMatcher.group(1).trim();
-        }
-
-        Matcher dateMatcher = DATE_PATTERN.matcher(text);
-        if (dateMatcher.find()) {
-            dateNaissance = dateMatcher.group(1);
-        }
+        log.info("OCR Extraction Completed -> CIN: '{}', Nom: '{}', Prenom: '{}', Confidence: {}",
+                cin, nom, prenom, confidence);
 
         return CinScanResultDto.builder()
                 .cin(cin)
                 .nom(nom)
                 .prenom(prenom)
+                .adresse("")
                 .dateNaissance(dateNaissance)
-                .confidence(cin != null ? 0.92 : 0.0)
+                .confidence(confidence)
                 .build();
+    }
+
+    private String extractPattern(String text, Pattern pattern) {
+        Matcher matcher = pattern.matcher(text);
+        if (matcher.find()) {
+            return cleanFieldValue(matcher.group(1));
+        }
+        return "";
+    }
+
+    private String cleanFieldValue(String raw) {
+        if (raw == null) return "";
+        return raw.trim().replaceAll("\\s+", " ");
+    }
+
+    private double calculateConfidence(String cin, String nom, String prenom) {
+        int fieldsFound = 0;
+        if (!cin.isEmpty()) fieldsFound++;
+        if (!nom.isEmpty()) fieldsFound++;
+        if (!prenom.isEmpty()) fieldsFound++;
+
+        if (fieldsFound == 0) return 0.0;
+        return fieldsFound / 3.0;
     }
 }
