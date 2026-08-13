@@ -1,20 +1,19 @@
 import axios from 'axios';
 import API_BASE_URL from './config';
-import { clearAuth } from './auth';
+import { getToken, clearAuth } from './auth';
 
 /**
- * Pre-configured Axios instance pointing to the Spring Boot backend.
- * Automatically attaches the JWT token from localStorage.
- * Equivalent of the axios calls throughout the React components.
+ * Pre-configured Axios instance pointing to the Spring Boot backend API.
+ * Automatically attaches the JWT token from cookies.
  */
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
-// Request interceptor — attach Bearer token & handle FormData
+// Request interceptor — attach Bearer token from cookie & handle FormData
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -30,7 +29,9 @@ api.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       clearAuth();
-      window.location.href = '/login';
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
