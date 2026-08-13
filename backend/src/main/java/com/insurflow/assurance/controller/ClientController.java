@@ -6,6 +6,7 @@ import com.insurflow.assurance.model.Client;
 import com.insurflow.assurance.service.CinOcrService;
 import com.insurflow.assurance.service.ClientService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +24,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/clients")
 @RequiredArgsConstructor
+@Slf4j
 public class ClientController {
 
     private final ClientService clientService;
@@ -33,7 +35,19 @@ public class ClientController {
      */
     @PostMapping(value = "/scan-cin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<CinScanResultDto> scanCin(@RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(cinOcrService.scanCinDocument(file));
+        try {
+            return ResponseEntity.ok(cinOcrService.scanCinDocument(file));
+        } catch (Throwable t) {
+            log.error("Unexpected error handling /api/clients/scan-cin: {}", t.getMessage(), t);
+            return ResponseEntity.ok(CinScanResultDto.builder()
+                    .cin("")
+                    .nom("")
+                    .prenom("")
+                    .adresse("")
+                    .dateNaissance("")
+                    .confidence(0.0)
+                    .build());
+        }
     }
 
     /** GET /api/clients?nom= — equivalent of getClients */

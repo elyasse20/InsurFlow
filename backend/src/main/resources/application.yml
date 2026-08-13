@@ -40,4 +40,4 @@ logging:
 
 
 tesseract:
-  datapath: /usr/share/tessdata
+  datapath: ${TESSERACT_DATAPATH:${TESSDATA_PREFIX:/usr/share/tessdata}}
