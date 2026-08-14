@@ -88,18 +88,43 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
 
       const data = res.data;
       if (data) {
-        setForm(prev => ({
-          ...prev,
-          nom: data.nom || prev.nom,
-          prenom: data.prenom || prev.prenom,
-          cin: data.cin || prev.cin,
-          adresse: data.adresse || prev.adresse,
-        }));
+        // Ensure form type is set to particulier so identity fields are visible
+        setType('particulier');
 
-        setFile(selectedFile); // Store scan file as client document
+        // Explicitly map extracted fields to form state
+        setForm(prev => {
+          const next = { ...prev };
+          if (data.nom && typeof data.nom === 'string' && data.nom.trim()) {
+            next.nom = data.nom.trim();
+          }
+          if (data.prenom && typeof data.prenom === 'string' && data.prenom.trim()) {
+            next.prenom = data.prenom.trim();
+          }
+          if (data.cin && typeof data.cin === 'string' && data.cin.trim()) {
+            next.cin = data.cin.trim();
+          }
+          if (data.adresse && typeof data.adresse === 'string' && data.adresse.trim()) {
+            next.adresse = data.adresse.trim();
+          }
+          return next;
+        });
 
-        const confidencePct = Math.round((data.confidence || 0.92) * 100);
-        setOcrNotice(`Données pré-remplies automatiquement par l'IA (Confiance: ${confidencePct}%). Veuillez vérifier les informations avant d'enregistrer.`);
+        // Store scan file as client document
+        setFile(selectedFile);
+
+        const hasExtractedData = Boolean(
+          (data.nom && data.nom.trim()) ||
+          (data.prenom && data.prenom.trim()) ||
+          (data.cin && data.cin.trim()) ||
+          (data.adresse && data.adresse.trim())
+        );
+
+        if (hasExtractedData) {
+          const confidencePct = Math.round(((data.confidence && data.confidence > 0) ? data.confidence : 0.90) * 100);
+          setOcrNotice(`Données pré-remplies automatiquement par l'IA (Confiance: ${confidencePct}%). Veuillez vérifier les informations avant d'enregistrer.`);
+        } else {
+          setError("Impossible d'extraire les données de la carte CIN. Vous pouvez saisir les informations manuellement.");
+        }
       }
     } catch (err: any) {
       console.error('Failed to scan CIN card:', err);
