@@ -51,12 +51,7 @@
       <version>1.3.40</version>
     </dependency>
 
-    <!-- ===== TESSERACT OCR ===== -->
-    <dependency>
-      <groupId>net.sourceforge.tess4j</groupId>
-      <artifactId>tess4j</artifactId>
-      <version>5.10.0</version>
-    </dependency>
+
 
     <!-- ===== SECURITY ===== -->
     <dependency>

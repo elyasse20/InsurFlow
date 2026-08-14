@@ -2,16 +2,20 @@ package com.insurflow.assurance.service;
 
 import com.insurflow.assurance.dto.CinScanResultDto;
 import lombok.extern.slf4j.Slf4j;
-import net.sourceforge.tess4j.ITesseract;
-import net.sourceforge.tess4j.Tesseract;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -31,7 +35,7 @@ public class CinOcrService {
 
     /**
      * Performs Tesseract OCR scanning on an uploaded CIN image/file
-     * and extracts fields dynamically via Regex.
+     * via CLI ProcessBuilder and extracts fields dynamically via Regex.
      * Never fails hard - always returns a valid CinScanResultDto.
      */
     public CinScanResultDto scanCinDocument(MultipartFile file) {
@@ -49,6 +53,7 @@ public class CinOcrService {
             ocrText = performOcr(tempFile);
         } catch (Throwable t) {
             log.error("Error during CIN document OCR processing for file: {}", file.getOriginalFilename(), t);
+            return createEmptyResult();
         } finally {
             if (tempFile != null && tempFile.exists()) {
                 try {
@@ -85,82 +90,114 @@ public class CinOcrService {
     }
 
     /**
-     * Dynamically resolves the best available Tesseract tessdata directory.
+     * Invokes the native tesseract CLI binary using ProcessBuilder.
+     * Command executed: tesseract <image_path> stdout -l fra+eng
      */
-    private String resolveTessDataPath() {
-        // 1. Explicitly configured datapath
-        if (tessDataPath != null && !tessDataPath.isBlank()) {
-            File dir = new File(tessDataPath.trim());
-            if (dir.exists() && dir.isDirectory()) {
-                log.info("Using configured Tesseract datapath: {}", dir.getAbsolutePath());
-                return dir.getAbsolutePath();
-            }
-            log.warn("Configured Tesseract datapath '{}' does not exist or is not a directory. Attempting auto-detection...", tessDataPath);
-        }
-
-        // 2. Environment variable TESSDATA_PREFIX
-        String envPrefix = System.getenv("TESSDATA_PREFIX");
-        if (envPrefix != null && !envPrefix.isBlank()) {
-            File dir = new File(envPrefix.trim());
-            if (dir.exists() && dir.isDirectory()) {
-                log.info("Using TESSDATA_PREFIX datapath: {}", dir.getAbsolutePath());
-                return dir.getAbsolutePath();
-            }
-        }
-
-        // 3. Known Linux/Alpine paths detection
-        String[] possiblePaths = {
-            "/usr/share/tessdata",
-            "/usr/share/tesseract-ocr/4.00/tessdata",
-            "/usr/share/tesseract-ocr/tessdata",
-            "/usr/share/tesseract-ocr/5/tessdata",
-            "/usr/local/share/tessdata"
-        };
-
-        for (String path : possiblePaths) {
-            File dir = new File(path);
-            if (dir.exists() && dir.isDirectory()) {
-                log.info("Auto-detected existing Tesseract datapath: {}", path);
-                return path;
-            }
-        }
-
-        // 4. Default fallback
-        log.warn("No existing Tesseract datapath directory found among known paths. Defaulting to /usr/share/tessdata");
-        return "/usr/share/tessdata";
-    }
-
     private String performOcr(File imageFile) {
         if (imageFile == null || !imageFile.exists()) {
             return "";
         }
 
         try {
-            ITesseract tesseract = new Tesseract();
-            String resolvedPath = resolveTessDataPath();
-            tesseract.setDatapath(resolvedPath);
+            List<String> command = new ArrayList<>();
+            command.add("tesseract");
+            command.add(imageFile.getAbsolutePath());
+            command.add("stdout");
 
-            // Attempt to use French + English if available
-            try {
-                File fraData = new File(resolvedPath, "fra.traineddata");
-                File engData = new File(resolvedPath, "eng.traineddata");
-                if (fraData.exists() && engData.exists()) {
-                    tesseract.setLanguage("fra+eng");
-                } else if (fraData.exists()) {
-                    tesseract.setLanguage("fra");
-                } else if (engData.exists()) {
-                    tesseract.setLanguage("eng");
+            if (tessDataPath != null && !tessDataPath.isBlank()) {
+                File dir = new File(tessDataPath.trim());
+                if (dir.exists() && dir.isDirectory()) {
+                    command.add("--tessdata-dir");
+                    command.add(dir.getAbsolutePath());
                 }
-            } catch (Exception e) {
-                log.debug("Using default Tesseract language setting: {}", e.getMessage());
             }
 
-            String result = tesseract.doOCR(imageFile);
-            return result != null ? result : "";
+            command.add("-l");
+            command.add("fra+eng");
+
+            log.info("Executing Tesseract CLI command: {}", String.join(" ", command));
+
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            processBuilder.redirectErrorStream(false);
+
+            Process process = processBuilder.start();
+
+            // Read standard output
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append(System.lineSeparator());
+                }
+            }
+
+            // Read standard error (for debugging/logging)
+            StringBuilder errorOutput = new StringBuilder();
+            try (BufferedReader errorReader = new BufferedReader(new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
+                String errLine;
+                while ((errLine = errorReader.readLine()) != null) {
+                    errorOutput.append(errLine).append(System.lineSeparator());
+                }
+            }
+
+            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                log.error("Tesseract CLI process timed out after 30 seconds");
+                return "";
+            }
+
+            int exitCode = process.exitValue();
+            if (exitCode != 0) {
+                log.warn("Tesseract CLI process exited with code {}. Error output: {}", exitCode, errorOutput.toString().trim());
+                return runFallbackOcr(imageFile);
+            }
+
+            return output.toString();
         } catch (Throwable t) {
-            log.warn("Tesseract OCR execution encountered an error: {}", t.getMessage());
+            log.warn("Tesseract CLI execution encountered an error: {}", t.getMessage());
             return "";
         }
+    }
+
+    /**
+     * Fallback execution with default language if multi-language CLI option fails.
+     */
+    private String runFallbackOcr(File imageFile) {
+        try {
+            List<String> command = new ArrayList<>(List.of("tesseract", imageFile.getAbsolutePath(), "stdout"));
+            if (tessDataPath != null && !tessDataPath.isBlank()) {
+                File dir = new File(tessDataPath.trim());
+                if (dir.exists() && dir.isDirectory()) {
+                    command.add("--tessdata-dir");
+                    command.add(dir.getAbsolutePath());
+                }
+            }
+
+            ProcessBuilder processBuilder = new ProcessBuilder(command);
+            Process process = processBuilder.start();
+
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append(System.lineSeparator());
+                }
+            }
+
+            boolean finished = process.waitFor(15, TimeUnit.SECONDS);
+            if (!finished) {
+                process.destroyForcibly();
+                return "";
+            }
+
+            if (process.exitValue() == 0) {
+                return output.toString();
+            }
+        } catch (Throwable t) {
+            log.debug("Fallback OCR also failed: {}", t.getMessage());
+        }
+        return "";
     }
 
     private CinScanResultDto parseOcrText(String text) {
