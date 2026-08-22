@@ -6,15 +6,17 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import javax.imageio.ImageIO;
+import java.awt.*;
+import java.awt.image.BufferedImage;
+import java.awt.image.ConvolveOp;
+import java.awt.image.Kernel;
+import java.awt.image.RescaleOp;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.*;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -27,220 +29,370 @@ public class CinOcrService {
     @Value("${tesseract.datapath:}")
     private String tessDataPath;
 
-    // ── Moroccan CIN number: 1-2 letters + 4-7 digits (no strict \b needed) ──
-    // Also matches OCR artefacts like "B 123456" (space between letter and digits)
-    private static final Pattern CIN_PATTERN =
-            Pattern.compile("(?<![A-Z0-9])([A-Z]{1,2}\\s?[0-9]{4,7})(?![0-9])", Pattern.CASE_INSENSITIVE);
+    // ── Scale factor for upsampling before OCR (higher = better accuracy, slower) ──
+    private static final float SCALE_FACTOR = 2.0f;
 
-    // ── Label-based patterns – tolerates OCR typos (0 for O, accents, colons) ──
+    // ── Contrast / brightness amplification for RescaleOp ──
+    private static final float CONTRAST_SCALE  = 1.6f;   // multiply pixel values
+    private static final float CONTRAST_OFFSET = -60.0f; // shift darkens mid-tones
+
+    // ── Moroccan CIN: 1-2 uppercase letters + 5-7 digits ──
+    // Accepts spaces/dots between letters and digits (common OCR artefacts)
+    // Applied on a pre-cleaned "alphanumeric-only" version of the text
+    private static final Pattern CIN_PATTERN =
+            Pattern.compile("\\b([A-Z]{1,2})([0-9]{5,7})\\b");
+
+    // ── Label-aware patterns — tolerate OCR typos (0→O, accent loss, missing colon) ──
     private static final Pattern NOM_LABEL_PATTERN =
-            Pattern.compile("(?i)N[O0]M\\s*[:\\-.]?\\s*([A-ZÀ-ÿa-z\\s\\-']{2,40}?)(?=\\r?\\n|$)");
+            Pattern.compile("(?i)N[O0]M\\s*[:\\-.]{0,2}\\s*([A-ZÀ-ÿa-z][A-ZÀ-ÿa-z\\s\\-']{1,39})(?=\\s*\\n|$)");
 
     private static final Pattern PRENOM_LABEL_PATTERN =
-            Pattern.compile("(?i)PR[EÉ][EÉ]?N[O0]M\\s*[:\\-.]?\\s*([A-ZÀ-ÿa-z\\s\\-']{2,40}?)(?=\\r?\\n|$)");
+            Pattern.compile("(?i)PR[EÉeé][EÉeé]?N[O0o]M\\s*[:\\-.]{0,2}\\s*([A-ZÀ-ÿa-z][A-ZÀ-ÿa-z\\s\\-']{1,39})(?=\\s*\\n|$)");
 
     private static final Pattern DATE_PATTERN =
-            Pattern.compile("\\b(\\d{2}[\\./\\-]\\d{2}[\\./\\-]\\d{4})\\b");
+            Pattern.compile("\\b(\\d{2}[.\\-/]\\d{2}[.\\-/]\\d{4})\\b");
 
-    // Adresse: label-aware, capturing up to end of that line
     private static final Pattern ADRESSE_LABEL_PATTERN =
-            Pattern.compile("(?i)(?:ADRESSE|RESIDENCE|DEMEURE|ADR)\\s*[:\\-.]?\\s*([A-ZÀ-ÿa-z0-9\\s,./\\-']{5,80}?)(?=\\r?\\n|$)");
+            Pattern.compile("(?i)(?:ADRESSE|R[EÉ]SIDENCE|DEMEURE|ADR)\\s*[:\\-.]{0,2}\\s*([A-ZÀ-ÿa-z0-9][A-ZÀ-ÿa-z0-9\\s,./\\-']{4,79})(?=\\s*\\n|$)");
 
-    // ── Noise words to reject when doing heuristic name extraction ──
-    private static final List<String> NOISE_TOKENS = Arrays.asList(
-            "ROYAUME", "DU", "MAROC", "CARTE", "NATIONALE", "IDENTITE",
-            "NATIONALE", "IDENTITY", "CARD", "KINGDOM", "MOROCCO",
-            "SEXE", "SEX", "DATE", "NAISSANCE", "BIRTH", "EXPIRY",
-            "EXPIRATION", "VALABLE", "SIGNATURE", "LIEU", "PLACE",
-            "CIN", "NOM", "PRENOM", "ADRESSE", "RESIDENCE"
+    // ── Noise phrases to skip when doing heuristic name detection ──
+    // Listed as full-line noise (exact or prefix match on the uppercased line)
+    private static final Set<String> NOISE_EXACT = new HashSet<>(Arrays.asList(
+            "ROYAUME DU MAROC", "ROYAUME", "DU MAROC", "MAROC", "MOROCCO",
+            "CARTE NATIONALE D IDENTITE", "CARTE NATIONALE", "CARTE NATIONALE D'IDENTITE",
+            "NATIONAL IDENTITY CARD", "IDENTITE", "IDENTITY", "IDENTITY CARD",
+            "KINGDOM OF MOROCCO", "KINGDOM",
+            "NOM", "PRENOM", "PRÉNOM", "NOM ET PRENOM",
+            "SEXE", "SEX", "M", "F",
+            "DATE DE NAISSANCE", "DATE NAISSANCE", "DATE OF BIRTH",
+            "LIEU DE NAISSANCE", "LIEU NAISSANCE",
+            "VALABLE JUSQU", "VALABLE", "VALIDE", "EXPIRY", "EXPIRATION",
+            "SIGNATURE", "CIN", "ADRESSE", "RESIDENCE", "DOMICILE"
+    ));
+
+    // ── Prefixes: if a noise word starts the line, skip the whole line ──
+    private static final List<String> NOISE_PREFIXES = Arrays.asList(
+            "ROYAUME", "CARTE", "NATIONAL", "IDENTITY", "VALABLE",
+            "EXPIR", "LIEU", "DATE", "SIGN", "NOM ", "PRENOM"
     );
 
+    // ──────────────────────────────────────────────────────────────────────────
+    //  Public entry point
+    // ──────────────────────────────────────────────────────────────────────────
+
     /**
-     * Performs Tesseract OCR on an uploaded CIN image/file and extracts fields.
-     * Always returns HTTP 200 with whatever partial data was extracted.
+     * Performs image preprocessing + Tesseract OCR on an uploaded CIN image.
+     * Always returns HTTP 200 with whatever partial data was successfully extracted.
      */
     public CinScanResultDto scanCinDocument(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            log.warn("scanCinDocument called with null or empty file.");
+            log.warn("scanCinDocument: null or empty file received.");
             return createEmptyResult();
         }
 
-        log.info("Processing OCR scan for: {} ({} bytes)", file.getOriginalFilename(), file.getSize());
+        log.info("OCR scan started — file: '{}', size: {} bytes",
+                file.getOriginalFilename(), file.getSize());
 
-        File tempFile = null;
-        String ocrText = "";
+        File rawTemp    = null;
+        File cleanedTemp = null;
+        String ocrText  = "";
+
         try {
-            tempFile = convertMultipartToFile(file);
-            ocrText = performOcr(tempFile);
+            // 1. Save the raw upload to a temp file
+            rawTemp = saveRawUpload(file);
+
+            // 2. Preprocess image (grayscale + contrast + upscale) → new temp PNG
+            cleanedTemp = preprocessImage(rawTemp);
+
+            // 3. Run Tesseract on the preprocessed file
+            File ocrInput = (cleanedTemp != null) ? cleanedTemp : rawTemp;
+            ocrText = performOcr(ocrInput);
+
         } catch (Throwable t) {
-            log.error("Error during OCR processing for: {}", file.getOriginalFilename(), t);
-            // Return empty but valid result — never throw
+            log.error("OCR processing failed for '{}': {}", file.getOriginalFilename(), t.getMessage(), t);
             return createEmptyResult();
         } finally {
-            deleteSilently(tempFile);
+            deleteSilently(rawTemp);
+            deleteSilently(cleanedTemp);
         }
 
-        log.info("Raw OCR text ({} chars):\n---\n{}\n---", ocrText.length(), ocrText);
+        // 4. Always log the raw OCR output so we can debug extraction issues
+        log.info("=== RAW TESSERACT OUTPUT ({} chars) ===\n{}\n=== END RAW OUTPUT ===",
+                ocrText.length(), ocrText);
 
         try {
             return parseOcrText(ocrText);
         } catch (Throwable t) {
-            log.error("Unexpected error parsing OCR text: {}", t.getMessage(), t);
+            log.error("Failed to parse OCR text: {}", t.getMessage(), t);
             return createEmptyResult();
         }
     }
 
-    // ── File handling ────────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────────────
+    //  Image Preprocessing — grayscale + contrast boost + 2× upscale
+    // ──────────────────────────────────────────────────────────────────────────
 
-    private File convertMultipartToFile(MultipartFile file) throws IOException {
+    /**
+     * Saves the raw MultipartFile to a temp file preserving the original extension.
+     */
+    private File saveRawUpload(MultipartFile file) throws IOException {
         String original = file.getOriginalFilename();
         String ext = (original != null && original.contains("."))
-                ? original.substring(original.lastIndexOf("."))
+                ? original.substring(original.lastIndexOf(".")).toLowerCase()
                 : ".tmp";
-        File tmp = File.createTempFile("cin_ocr_", ext);
+        File tmp = File.createTempFile("cin_raw_", ext);
         Files.copy(file.getInputStream(), tmp.toPath(), StandardCopyOption.REPLACE_EXISTING);
         return tmp;
     }
 
-    private void deleteSilently(File f) {
-        if (f != null && f.exists()) {
-            try { if (!f.delete()) f.deleteOnExit(); }
-            catch (Exception ignored) {}
+    /**
+     * Preprocesses the uploaded image for better Tesseract accuracy:
+     * <ol>
+     *   <li>Convert to grayscale</li>
+     *   <li>Apply contrast amplification via {@link RescaleOp}</li>
+     *   <li>Sharpen with a 3×3 unsharp-mask kernel</li>
+     *   <li>Upscale by {@link #SCALE_FACTOR} using bicubic interpolation</li>
+     * </ol>
+     * Returns {@code null} (silently) if the file is a PDF or if ImageIO cannot
+     * read it — in that case the caller falls back to the raw file.
+     */
+    private File preprocessImage(File input) {
+        String name = input.getName().toLowerCase();
+        if (name.endsWith(".pdf")) {
+            log.debug("Skipping image preprocessing for PDF input.");
+            return null;
+        }
+
+        try {
+            BufferedImage src = ImageIO.read(input);
+            if (src == null) {
+                log.warn("ImageIO could not read '{}' — skipping preprocessing.", input.getName());
+                return null;
+            }
+
+            // Step 1: Convert to grayscale
+            BufferedImage gray = toGrayscale(src);
+
+            // Step 2: Boost contrast
+            BufferedImage contrasted = boostContrast(gray);
+
+            // Step 3: Sharpen (helps OCR on blurry/low-res scans)
+            BufferedImage sharpened = sharpen(contrasted);
+
+            // Step 4: Upscale
+            BufferedImage upscaled = upscale(sharpened);
+
+            // Step 5: Write to a new temp PNG (PNG is lossless — ideal for OCR)
+            File out = File.createTempFile("cin_clean_", ".png");
+            ImageIO.write(upscaled, "PNG", out);
+            log.info("Preprocessed image saved: {} ({}×{})", out.getName(),
+                    upscaled.getWidth(), upscaled.getHeight());
+            return out;
+
+        } catch (Exception e) {
+            log.warn("Image preprocessing failed — using raw file. Reason: {}", e.getMessage());
+            return null;
         }
     }
 
-    // ── Tesseract CLI ────────────────────────────────────────────────────────
+    /** Convert any image type to TYPE_BYTE_GRAY */
+    private BufferedImage toGrayscale(BufferedImage src) {
+        BufferedImage gray = new BufferedImage(src.getWidth(), src.getHeight(),
+                BufferedImage.TYPE_BYTE_GRAY);
+        Graphics2D g = gray.createGraphics();
+        g.drawImage(src, 0, 0, null);
+        g.dispose();
+        return gray;
+    }
 
+    /**
+     * Amplify contrast using {@link RescaleOp}: out = in * scale + offset.
+     * Pixels are clamped to [0, 255] automatically.
+     */
+    private BufferedImage boostContrast(BufferedImage gray) {
+        RescaleOp op = new RescaleOp(CONTRAST_SCALE, CONTRAST_OFFSET, null);
+        return op.filter(gray, null);
+    }
+
+    /**
+     * Applies a 3×3 sharpening kernel (unsharp-mask style).
+     * This enhances fine character edges after contrast boosting.
+     */
+    private BufferedImage sharpen(BufferedImage src) {
+        float[] kernelData = {
+                 0f, -1f,  0f,
+                -1f,  5f, -1f,
+                 0f, -1f,  0f
+        };
+        Kernel kernel = new Kernel(3, 3, kernelData);
+        ConvolveOp op = new ConvolveOp(kernel, ConvolveOp.EDGE_NO_OP, null);
+        return op.filter(src, null);
+    }
+
+    /**
+     * Upscales using bicubic interpolation to the configured {@link #SCALE_FACTOR}.
+     * Tesseract performs best on images with at least 300 DPI effective resolution.
+     */
+    private BufferedImage upscale(BufferedImage src) {
+        int newW = Math.round(src.getWidth()  * SCALE_FACTOR);
+        int newH = Math.round(src.getHeight() * SCALE_FACTOR);
+        BufferedImage scaled = new BufferedImage(newW, newH, src.getType());
+        Graphics2D g = scaled.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING,
+                RenderingHints.VALUE_RENDER_QUALITY);
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON);
+        g.drawImage(src, 0, 0, newW, newH, null);
+        g.dispose();
+        return scaled;
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    //  Tesseract CLI
+    // ──────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Runs Tesseract with a language fallback chain:
+     * {@code fra+eng} → {@code eng} → {@code fra}.
+     */
     private String performOcr(File imageFile) {
         if (imageFile == null || !imageFile.exists()) return "";
 
-        // Try with fra+eng first, fall back to eng alone
-        String result = runTesseract(imageFile, "fra+eng");
-        if (result.isBlank()) {
-            log.warn("fra+eng OCR returned empty output, retrying with eng only");
-            result = runTesseract(imageFile, "eng");
+        for (String lang : List.of("fra+eng", "eng", "fra")) {
+            String result = runTesseract(imageFile, lang);
+            if (!result.isBlank()) {
+                log.info("Tesseract succeeded with lang='{}'", lang);
+                return result;
+            }
+            log.warn("Tesseract returned blank output for lang='{}', trying next.", lang);
         }
-        if (result.isBlank()) {
-            log.warn("eng OCR also empty, retrying with ara+fra+eng");
-            result = runTesseract(imageFile, "ara+fra+eng");
-        }
-        return result;
+        log.error("All Tesseract language attempts returned blank output.");
+        return "";
     }
 
     private String runTesseract(File imageFile, String lang) {
         try {
-            List<String> command = new ArrayList<>();
-            command.add("tesseract");
-            command.add(imageFile.getAbsolutePath());
-            command.add("stdout");
+            List<String> cmd = new ArrayList<>();
+            cmd.add("tesseract");
+            cmd.add(imageFile.getAbsolutePath());
+            cmd.add("stdout");
 
-            // Optional PSM hints for ID cards: PSM 6 = assume uniform block of text
-            command.add("--psm");
-            command.add("6");
+            // PSM 6 — treat input as a single uniform block of text (good for ID cards)
+            cmd.add("--psm");
+            cmd.add("6");
+
+            // OEM 1 — use LSTM neural engine (most accurate on modern Tesseract)
+            cmd.add("--oem");
+            cmd.add("1");
 
             if (tessDataPath != null && !tessDataPath.isBlank()) {
                 File dir = new File(tessDataPath.trim());
                 if (dir.exists() && dir.isDirectory()) {
-                    command.add("--tessdata-dir");
-                    command.add(dir.getAbsolutePath());
+                    cmd.add("--tessdata-dir");
+                    cmd.add(dir.getAbsolutePath());
                 }
             }
 
-            command.add("-l");
-            command.add(lang);
+            cmd.add("-l");
+            cmd.add(lang);
 
-            log.info("Tesseract command: {}", String.join(" ", command));
+            log.info("Tesseract CLI: {}", String.join(" ", cmd));
 
-            ProcessBuilder pb = new ProcessBuilder(command);
+            ProcessBuilder pb = new ProcessBuilder(cmd);
             pb.redirectErrorStream(false);
-            Process process = pb.start();
+            Process proc = pb.start();
 
-            StringBuilder stdout = new StringBuilder();
+            // Drain stdout
+            StringBuilder out = new StringBuilder();
             try (BufferedReader r = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                    new InputStreamReader(proc.getInputStream(), StandardCharsets.UTF_8))) {
                 String line;
-                while ((line = r.readLine()) != null) stdout.append(line).append('\n');
+                while ((line = r.readLine()) != null) out.append(line).append('\n');
             }
 
-            StringBuilder stderr = new StringBuilder();
+            // Drain stderr (log only)
+            StringBuilder err = new StringBuilder();
             try (BufferedReader r = new BufferedReader(
-                    new InputStreamReader(process.getErrorStream(), StandardCharsets.UTF_8))) {
+                    new InputStreamReader(proc.getErrorStream(), StandardCharsets.UTF_8))) {
                 String line;
-                while ((line = r.readLine()) != null) stderr.append(line).append('\n');
+                while ((line = r.readLine()) != null) err.append(line).append('\n');
             }
 
-            boolean finished = process.waitFor(30, TimeUnit.SECONDS);
-            if (!finished) {
-                process.destroyForcibly();
-                log.error("Tesseract timed out after 30s for lang={}", lang);
+            boolean done = proc.waitFor(30, TimeUnit.SECONDS);
+            if (!done) {
+                proc.destroyForcibly();
+                log.error("Tesseract process timed out (lang={})", lang);
                 return "";
             }
 
-            int exit = process.exitValue();
+            int exit = proc.exitValue();
             if (exit != 0) {
-                log.warn("Tesseract exited {} for lang={}. stderr: {}", exit, lang, stderr.toString().trim());
+                log.warn("Tesseract exit={} lang={} stderr: {}", exit, lang, err.toString().trim());
                 return "";
             }
 
-            return stdout.toString();
+            return out.toString();
 
         } catch (Throwable t) {
-            log.warn("Tesseract CLI error for lang={}: {}", lang, t.getMessage());
+            log.warn("Tesseract error lang={}: {}", lang, t.getMessage());
             return "";
         }
     }
 
-    // ── Field Extraction ─────────────────────────────────────────────────────
+    // ──────────────────────────────────────────────────────────────────────────
+    //  Field Extraction
+    // ──────────────────────────────────────────────────────────────────────────
 
     private CinScanResultDto parseOcrText(String raw) {
         if (raw == null || raw.isBlank()) {
-            log.warn("OCR returned blank text — returning empty result");
+            log.warn("parseOcrText: blank input — returning empty result.");
             return createEmptyResult();
         }
 
-        // Normalize: collapse multiple spaces, unify line endings
-        String text = raw.replaceAll("\r\n", "\n").replaceAll("[ \\t]+", " ").trim();
+        // Normalize line endings and collapse runs of spaces/tabs
+        String text = raw.replace("\r\n", "\n").replace("\r", "\n")
+                         .replaceAll("[ \t]+", " ").trim();
         String[] lines = text.split("\n");
 
-        // ── 1. CIN number ──────────────────────────────────────────────────
+        // ── 1. CIN number ──────────────────────────────────────────────────────
         String cin = extractCin(text);
 
-        // ── 2. Nom / Prénom — multi-strategy ──────────────────────────────
+        // ── 2. Nom / Prénom — three-tiered strategy ────────────────────────────
+        // Tier 1: label-aware regex on the full text
         String nom    = extractByLabel(text, NOM_LABEL_PATTERN);
         String prenom = extractByLabel(text, PRENOM_LABEL_PATTERN);
 
-        // Strategy 2b: scan lines for keyword prefix (handles "NOM XXXXX" on one line)
+        // Tier 2: line-by-line keyword scan (handles labels on separate lines)
         if (nom.isEmpty() || prenom.isEmpty()) {
-            String[] resolved = extractNomPrenomFromLines(lines, nom, prenom);
-            if (nom.isEmpty())    nom    = resolved[0];
-            if (prenom.isEmpty()) prenom = resolved[1];
+            String[] r = extractNomPrenomFromLines(lines, nom, prenom);
+            if (nom.isEmpty())    nom    = r[0];
+            if (prenom.isEmpty()) prenom = r[1];
         }
 
-        // Strategy 2c: heuristic — find the first all-caps line(s) that look like names
-        // (used when card has no explicit label — common on biometric Moroccan CINs)
+        // Tier 3: heuristic — pick prominent all-caps name-like lines (no label at all)
         if (nom.isEmpty() && prenom.isEmpty()) {
-            String[] resolved = extractNomPrenomHeuristic(lines);
-            nom    = resolved[0];
-            prenom = resolved[1];
+            String[] r = extractNomPrenomHeuristic(lines);
+            nom    = r[0];
+            prenom = r[1];
         }
 
-        // ── 3. Date of birth ──────────────────────────────────────────────
+        // ── 3. Date of birth ───────────────────────────────────────────────────
         String dateNaissance = extractFirst(text, DATE_PATTERN);
 
-        // ── 4. Address ────────────────────────────────────────────────────
+        // ── 4. Address ────────────────────────────────────────────────────────
         String adresse = extractByLabel(text, ADRESSE_LABEL_PATTERN);
-        if (adresse.isEmpty()) {
-            adresse = extractAddressHeuristic(lines);
-        }
+        if (adresse.isEmpty()) adresse = extractAddressHeuristic(lines);
 
-        // ── Sanitize ──────────────────────────────────────────────────────
+        // ── Sanitize ─────────────────────────────────────────────────────────
         nom    = sanitizeName(nom);
         prenom = sanitizeName(prenom);
         cin    = cin.replaceAll("\\s+", "").toUpperCase();
 
         double confidence = calculateConfidence(cin, nom, prenom);
 
-        log.info("OCR Result → CIN:'{}' Nom:'{}' Prenom:'{}' Date:'{}' Adresse:'{}' Confidence:{}",
+        log.info("OCR RESULT → CIN:'{}' Nom:'{}' Prenom:'{}' Date:'{}' Adresse:'{}' Confidence:{}",
                 cin, nom, prenom, dateNaissance, adresse, confidence);
 
         return CinScanResultDto.builder()
@@ -253,71 +405,87 @@ public class CinOcrService {
                 .build();
     }
 
-    /** Extract CIN number — loose pattern, no strict word-boundary reliance */
-    private String extractCin(String text) {
+    // ── CIN Extraction ────────────────────────────────────────────────────────
+
+    /**
+     * Strips non-alphanumeric characters from the OCR text, then searches for
+     * the CIN pattern {@code [A-Z]{1,2}[0-9]{5,7}}.
+     * Spaces and punctuation between the letter prefix and digit suffix (common
+     * OCR artefacts) are removed before matching.
+     */
+    private String extractCin(String rawText) {
+        // Pass 1: try on the original text (most common case)
+        String found = findCinInText(rawText);
+        if (!found.isEmpty()) return found;
+
+        // Pass 2: strip all non-alphanumeric chars to collapse "B K 123456" → "BK123456"
+        String stripped = rawText.replaceAll("[^A-Za-z0-9]", " ");
+        found = findCinInText(stripped);
+        if (!found.isEmpty()) return found;
+
+        // Pass 3: fix common digit↔letter OCR confusions then retry
+        //   0→O already handled by regex; fix I→1 in the letter prefix area
+        String corrected = rawText
+                .replaceAll("(?<![0-9])0(?=[A-Z0-9]{5,7}\\b)", "O")  // leading 0 → O
+                .replaceAll("(?i)\\b(l|I)([0-9]{5,7})\\b", "I$2");   // l/I + digits → I prefix
+        return findCinInText(corrected);
+    }
+
+    private String findCinInText(String text) {
         Matcher m = CIN_PATTERN.matcher(text.toUpperCase());
         while (m.find()) {
-            String candidate = m.group(1).replaceAll("\\s+", "").toUpperCase();
-            // Must have at least one letter prefix
-            if (candidate.matches("[A-Z]{1,2}[0-9]{4,7}")) {
+            String candidate = m.group(1) + m.group(2);
+            if (candidate.matches("[A-Z]{1,2}[0-9]{5,7}")) {
                 return candidate;
             }
         }
         return "";
     }
 
-    /** Extract field using a label-aware regex (group 1 = value after label) */
+    // ── Label-aware extraction ─────────────────────────────────────────────
+
     private String extractByLabel(String text, Pattern pattern) {
         Matcher m = pattern.matcher(text);
-        if (m.find()) {
-            return cleanValue(m.group(1));
-        }
-        return "";
+        return m.find() ? cleanValue(m.group(1)) : "";
     }
 
-    /** Extract first match of a simple pattern (group 1) */
     private String extractFirst(String text, Pattern pattern) {
         Matcher m = pattern.matcher(text);
         return m.find() ? cleanValue(m.group(1)) : "";
     }
 
+    // ── Line-by-line name scan ────────────────────────────────────────────
+
     /**
-     * Line-by-line scan: find lines whose TRIMMED content starts with a known keyword.
-     * Handles OCR variants like "NOM.", "N0M:", "PRÉNOM", "PREN0M", etc.
+     * Scans each line for a NOM / PRENOM keyword prefix, then captures the value
+     * either on the same line or on the immediately following non-blank line.
+     * Handles common OCR typos: N0M, PR0NOM, PRÉNOM, PREN0M, etc.
      */
     private String[] extractNomPrenomFromLines(String[] lines, String existingNom, String existingPrenom) {
         String nom    = existingNom;
         String prenom = existingPrenom;
 
+        // Compiled inline to avoid outer-scope static bloat
+        Pattern nomKey    = Pattern.compile("(?i)^N[O0]M\\s*[:\\-.]{0,2}\\s*(.*)$");
+        Pattern prenomKey = Pattern.compile("(?i)^PR[EÉeé][EÉeé]?N[O0o]M\\s*[:\\-.]{0,2}\\s*(.*)$");
+
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
             if (line.isBlank()) continue;
-            String upper = line.toUpperCase();
 
-            // NOM keyword on the same line OR next line holds the value
-            if (nom.isEmpty() && upper.matches("N[O0]M\\s*[:\\-.]?.*")) {
-                String inline = line.replaceFirst("(?i)N[O0]M\\s*[:\\-.]?\\s*", "").trim();
-                if (!inline.isBlank() && inline.length() >= 2) {
-                    nom = cleanValue(inline);
-                } else if (i + 1 < lines.length) {
-                    // Value is on the next line
-                    String nextLine = lines[i + 1].trim();
-                    if (!nextLine.isBlank() && nextLine.length() >= 2) {
-                        nom = cleanValue(nextLine);
-                    }
+            if (nom.isEmpty()) {
+                Matcher m = nomKey.matcher(line);
+                if (m.matches()) {
+                    String inline = m.group(1).trim();
+                    nom = inline.length() >= 2 ? cleanValue(inline) : peekNextLine(lines, i);
                 }
             }
 
-            // PRENOM keyword (with many OCR typo variants)
-            if (prenom.isEmpty() && upper.matches("PR[EÉ][EÉ]?N[O0]M\\s*[:\\-.]?.*")) {
-                String inline = line.replaceFirst("(?i)PR[EÉ][EÉ]?N[O0]M\\s*[:\\-.]?\\s*", "").trim();
-                if (!inline.isBlank() && inline.length() >= 2) {
-                    prenom = cleanValue(inline);
-                } else if (i + 1 < lines.length) {
-                    String nextLine = lines[i + 1].trim();
-                    if (!nextLine.isBlank() && nextLine.length() >= 2) {
-                        prenom = cleanValue(nextLine);
-                    }
+            if (prenom.isEmpty()) {
+                Matcher m = prenomKey.matcher(line);
+                if (m.matches()) {
+                    String inline = m.group(1).trim();
+                    prenom = inline.length() >= 2 ? cleanValue(inline) : peekNextLine(lines, i);
                 }
             }
 
@@ -327,46 +495,75 @@ public class CinOcrService {
         return new String[]{nom, prenom};
     }
 
+    private String peekNextLine(String[] lines, int i) {
+        for (int j = i + 1; j < lines.length; j++) {
+            String next = lines[j].trim();
+            if (!next.isBlank() && next.length() >= 2) return cleanValue(next);
+        }
+        return "";
+    }
+
+    // ── Heuristic name extraction (no labels on card) ───────────────────────
+
     /**
-     * Heuristic extraction for biometric Moroccan CINs that have NO explicit NOM/PRENOM labels.
-     * Strategy: find consecutive all-uppercase lines (2-4 words, 2-25 chars each word)
-     * that don't contain noise tokens and treat them as Nom / Prénom pairs.
+     * Last-resort name extraction for biometric Moroccan CINs that display the
+     * holder's name without any label.
+     * <p>
+     * Algorithm:
+     * <ol>
+     *   <li>Skip blank, digit-containing, or noise lines.</li>
+     *   <li>Require the remaining content to be purely alphabetic (A-Z, accented,
+     *       hyphens, apostrophes).</li>
+     *   <li>Apply OCR digit-to-letter correction (0→O, 1→I, 8→B) on the
+     *       candidate text before scoring.</li>
+     *   <li>Collect up to two candidates — the first is treated as nom (family
+     *       name, typically all-caps on Moroccan CINs), the second as prenom.</li>
+     * </ol>
      */
     private String[] extractNomPrenomHeuristic(String[] lines) {
         List<String> candidates = new ArrayList<>();
 
         for (String raw : lines) {
             String line = raw.trim();
-            if (line.isBlank() || line.length() < 2) continue;
+            if (line.isBlank() || line.length() < 2 || line.length() > 45) continue;
 
-            // Reject lines that contain digits (likely dates, CIN numbers, addresses)
+            // Skip lines with digits (dates, CIN, address numbers)
             if (line.matches(".*\\d.*")) continue;
 
-            // Reject lines shorter than 2 chars or longer than 40
-            if (line.length() > 40) continue;
+            // Apply common OCR digit→letter corrections before testing
+            String corrected = line
+                    .replaceAll("(?<=[A-ZÀ-ÿa-z])0(?=[A-ZÀ-ÿa-z])", "O")
+                    .replaceAll("(?<=[A-ZÀ-ÿa-z])1(?=[A-ZÀ-ÿa-z])", "I")
+                    .replaceAll("(?<=[A-ZÀ-ÿa-z])8(?=[A-ZÀ-ÿa-z])", "B");
 
-            // Must be mostly alphabetic (allow spaces, hyphens, apostrophes)
-            String normalized = line.replaceAll("[\\s\\-']", "");
-            if (!normalized.matches("[A-ZÀ-Ÿa-zà-ÿ]+")) continue;
+            // Must be purely alpha + allowed punctuation after correction
+            String stripped = corrected.replaceAll("[\\s\\-']", "");
+            if (!stripped.matches("[A-ZÀ-Ÿa-zà-ÿ]+")) continue;
 
-            // Reject noise tokens
-            String upper = line.toUpperCase().trim();
-            boolean isNoise = NOISE_TOKENS.stream().anyMatch(n -> upper.equals(n) || upper.startsWith(n + " "));
-            if (isNoise) continue;
+            // Reject noise phrases
+            String upper = corrected.toUpperCase().trim();
+            if (isNoiseLine(upper)) continue;
 
-            candidates.add(line.trim());
+            candidates.add(corrected.trim());
             if (candidates.size() == 2) break;
         }
 
-        String nom    = candidates.size() > 0 ? candidates.get(0) : "";
-        String prenom = candidates.size() > 1 ? candidates.get(1) : "";
-        return new String[]{nom, prenom};
+        return new String[]{
+                candidates.size() > 0 ? candidates.get(0) : "",
+                candidates.size() > 1 ? candidates.get(1) : ""
+        };
     }
 
-    /**
-     * Heuristic address extraction: find the first line after an address-related keyword
-     * or the first long line (>= 10 chars) containing digits or a city hint.
-     */
+    private boolean isNoiseLine(String upper) {
+        if (NOISE_EXACT.contains(upper)) return true;
+        for (String prefix : NOISE_PREFIXES) {
+            if (upper.startsWith(prefix)) return true;
+        }
+        return false;
+    }
+
+    // ── Address heuristic ────────────────────────────────────────────────────
+
     private String extractAddressHeuristic(String[] lines) {
         boolean nextIsAddress = false;
         for (String raw : lines) {
@@ -374,39 +571,34 @@ public class CinOcrService {
             if (line.isBlank()) continue;
             String upper = line.toUpperCase();
 
-            if (nextIsAddress && line.length() >= 5) {
-                return cleanValue(line);
-            }
+            if (nextIsAddress && line.length() >= 5) return cleanValue(line);
 
-            if (upper.matches("(?:ADRESSE|RESIDENCE|DEMEURE|ADR)\\s*[:\\-.]?\\s*")) {
+            if (upper.matches("(?:ADRESSE|R[EÉ]SIDENCE|DEMEURE|ADR)\\s*[:\\-.]{0,2}\\s*")) {
                 nextIsAddress = true;
-            } else if (upper.matches("(?:ADRESSE|RESIDENCE|DEMEURE|ADR)\\s*[:\\-.]?\\s*.+")) {
-                // Inline address
-                return cleanValue(line.replaceFirst("(?i)(?:ADRESSE|RESIDENCE|DEMEURE|ADR)\\s*[:\\-.]?\\s*", ""));
+            } else if (upper.matches("(?:ADRESSE|R[EÉ]SIDENCE|DEMEURE|ADR)\\s*[:\\-.]{0,2}\\s*.+")) {
+                return cleanValue(
+                        line.replaceFirst("(?i)(?:ADRESSE|R[EÉ]SIDENCE|DEMEURE|ADR)\\s*[:\\-.]{0,2}\\s*", ""));
             }
         }
         return "";
     }
 
-    // ── Helpers ──────────────────────────────────────────────────────────────
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private String cleanValue(String raw) {
         if (raw == null) return "";
-        return raw.trim().replaceAll("\\s+", " ").replaceAll("^[:\\-\\.\\s]+|[:\\-\\.\\s]+$", "");
+        return raw.trim()
+                  .replaceAll("\\s+", " ")
+                  .replaceAll("^[:\\-./\\s]+|[:\\-./\\s]+$", "");
     }
 
     private String sanitizeName(String val) {
         if (val == null || val.isBlank()) return "";
         String cleaned = cleanValue(val);
-
-        // Reject if it matches a known noise phrase
+        if (cleaned.length() < 2) return "";
+        if (!cleaned.matches(".*[A-Za-zÀ-ÿ].*")) return "";
         String upper = cleaned.toUpperCase();
-        for (String noise : NOISE_TOKENS) {
-            if (upper.equals(noise) || upper.startsWith(noise + " ")) return "";
-        }
-
-        // Must contain at least one letter and be at least 2 chars
-        if (!cleaned.matches(".*[A-Za-zÀ-ÿ].*") || cleaned.length() < 2) return "";
+        if (isNoiseLine(upper)) return "";
         return cleaned;
     }
 
@@ -415,13 +607,17 @@ public class CinOcrService {
         if (!cin.isEmpty())    found++;
         if (!nom.isEmpty())    found++;
         if (!prenom.isEmpty()) found++;
-
         return switch (found) {
-            case 3 -> 0.95;
-            case 2 -> 0.75;
-            case 1 -> 0.45;
+            case 3  -> 0.95;
+            case 2  -> 0.75;
+            case 1  -> 0.45;
             default -> 0.0;
         };
+    }
+
+    private void deleteSilently(File f) {
+        if (f == null || !f.exists()) return;
+        try { if (!f.delete()) f.deleteOnExit(); } catch (Exception ignored) {}
     }
 
     private CinScanResultDto createEmptyResult() {
