@@ -294,8 +294,11 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
 
                 <input
                   ref={cinScanInputRef}
+                  id="cin-scan-file"
+                  name="cin-scan-file"
                   type="file"
                   accept="image/*,.pdf"
+                  aria-label="Scanner une carte CIN ou permis"
                   className="hidden"
                   onChange={handleCinScanInputChange}
                 />
@@ -475,7 +478,10 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
 
                 <input
                   ref={fileInputRef}
+                  id="doc-upload-file"
+                  name="doc-upload-file"
                   type="file"
+                  aria-label="Téléverser un document (CIN ou Registre de commerce)"
                   className="hidden"
                   accept=".pdf,.jpg,.jpeg,.png"
                   onChange={handleFileChange}
@@ -525,6 +531,7 @@ function FieldRow({
       <Label htmlFor={id}>{label}{required && <span className="text-destructive ml-1">*</span>}</Label>
       <Input
         id={id}
+        name={id}
         type={type}
         value={value}
         onChange={onChange}
@@ -533,6 +540,7 @@ function FieldRow({
         maxLength={maxLength}
         pattern={pattern}
         min={min}
+        autoComplete={type === 'number' ? 'off' : id}
         className="bg-muted/30 border-border focus:border-primary"
       />
     </div>
