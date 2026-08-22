@@ -86,49 +86,67 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
+      // Debug: log the full server OCR response
+      console.log('OCR Server Response:', res.data);
+
       const data = res.data;
       if (data) {
-        // Ensure form type is set to particulier so identity fields are visible
+        // Always switch to particulier so identity fields are visible
         setType('particulier');
 
-        // Explicitly map extracted fields to form state
+        // Explicitly map all extracted fields — use empty string as safe fallback
         setForm(prev => {
           const next = { ...prev };
-          if (data.nom && typeof data.nom === 'string' && data.nom.trim()) {
-            next.nom = data.nom.trim();
-          }
-          if (data.prenom && typeof data.prenom === 'string' && data.prenom.trim()) {
-            next.prenom = data.prenom.trim();
-          }
-          if (data.cin && typeof data.cin === 'string' && data.cin.trim()) {
-            next.cin = data.cin.trim();
-          }
-          if (data.adresse && typeof data.adresse === 'string' && data.adresse.trim()) {
-            next.adresse = data.adresse.trim();
-          }
+
+          const nom    = (data.nom            ?? '').trim();
+          const prenom = (data.prenom         ?? '').trim();
+          const cin    = (data.cin            ?? '').trim();
+          const adrs   = (data.adresse        ?? '').trim();
+          const dob    = (data.dateNaissance  ?? '').trim();
+
+          if (nom)    next.nom    = nom;
+          if (prenom) next.prenom = prenom;
+          if (cin)    next.cin    = cin;
+          if (adrs)   next.adresse = adrs;
+          // dateNaissance is not a form field but log it for traceability
+          if (dob) console.log('OCR dateNaissance:', dob);
+
+          console.log('Form state after OCR mapping:', next);
           return next;
         });
 
         // Store scan file as client document
         setFile(selectedFile);
 
-        const hasExtractedData = Boolean(
-          (data.nom && data.nom.trim()) ||
-          (data.prenom && data.prenom.trim()) ||
-          (data.cin && data.cin.trim()) ||
-          (data.adresse && data.adresse.trim())
-        );
+        // Show error ONLY when every single extracted field is empty
+        const nothingExtracted =
+          !(data.nom            ?? '').trim() &&
+          !(data.prenom         ?? '').trim() &&
+          !(data.cin            ?? '').trim() &&
+          !(data.adresse        ?? '').trim() &&
+          !(data.dateNaissance  ?? '').trim();
 
-        if (hasExtractedData) {
-          const confidencePct = Math.round(((data.confidence && data.confidence > 0) ? data.confidence : 0.90) * 100);
-          setOcrNotice(`Données pré-remplies automatiquement par l'IA (Confiance: ${confidencePct}%). Veuillez vérifier les informations avant d'enregistrer.`);
-        } else {
+        if (nothingExtracted) {
           setError("Impossible d'extraire les données de la carte CIN. Vous pouvez saisir les informations manuellement.");
+        } else {
+          const extractedFields = [
+            data.nom && 'Nom',
+            data.prenom && 'Prénom',
+            data.cin && 'CIN',
+            data.adresse && 'Adresse',
+            data.dateNaissance && 'Date de naissance',
+          ].filter(Boolean).join(', ');
+          const confidencePct = Math.round(((data.confidence ?? 0) > 0 ? data.confidence! : 0.90) * 100);
+          setOcrNotice(
+            `Données pré-remplies par l'IA (${extractedFields}) — Confiance: ${confidencePct}%. ` +
+            `Veuillez vérifier les informations avant d'enregistrer.`
+          );
         }
       }
     } catch (err: any) {
-      console.error('Failed to scan CIN card:', err);
-      setError('Impossible d\'extraire les données de la carte CIN. Vous pouvez saisir les informations manuellement.');
+      console.error('OCR scan failed — raw error:', err);
+      console.error('OCR scan response data:', err?.response?.data);
+      setError("Impossible d'extraire les données de la carte CIN. Vous pouvez saisir les informations manuellement.");
     } finally {
       setScanningCin(false);
     }
