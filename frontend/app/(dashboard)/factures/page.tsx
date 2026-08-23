@@ -3,10 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import API_BASE_URL from '@/lib/config';
-import { Invoice, InvoiceType, InvoiceStatusType } from '@/types';
+import { Invoice } from '@/types';
 import {
-  FileCheck, Download, Plus, Search, Filter, RefreshCw, FileText, FileSpreadsheet,
-  AlertCircle, CheckCircle2, Clock, X, DollarSign, Shield, Receipt
+  Download, Plus, Search, RefreshCw, X, Receipt
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -112,25 +111,25 @@ export default function FacturesPage() {
   };
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-6 sm:space-y-8 pb-12">
       {/* Header Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground tracking-tight flex items-center gap-2.5">
-            <Receipt className="w-7 h-7 text-primary" />
+          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight flex items-center gap-2.5">
+            <Receipt className="w-6 h-6 sm:w-7 sm:h-7 text-primary flex-shrink-0" />
             Facturation & Comptabilité
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
             Gestion des factures, devis proforma, avoirs et génération de documents PDF officiels.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <Button onClick={fetchInvoices} variant="outline" size="sm" className="gap-2">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <Button onClick={fetchInvoices} variant="outline" size="sm" className="gap-2 h-9">
             <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
             Actualiser
           </Button>
-          <Button onClick={() => setShowProformaModal(true)} size="sm" className="gap-2 shadow-md shadow-primary/20">
+          <Button onClick={() => setShowProformaModal(true)} size="sm" className="gap-2 shadow-md shadow-primary/20 h-9">
             <Plus className="w-4 h-4" />
             Nouveau Devis Proforma
           </Button>
@@ -138,49 +137,49 @@ export default function FacturesPage() {
       </div>
 
       {/* Summary Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-5 rounded-2xl border border-border bg-card shadow-sm space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+        <div className="p-4 sm:p-5 rounded-2xl border border-border bg-card shadow-sm space-y-1.5">
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chiffre d'Affaires Facturé</p>
-          <p className="text-2xl font-bold text-foreground">{totalFacture.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
+          <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{totalFacture.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
           <p className="text-[11px] text-muted-foreground">Primes émettant des factures standard</p>
         </div>
 
-        <div className="p-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 shadow-sm space-y-2">
+        <div className="p-4 sm:p-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 shadow-sm space-y-1.5">
           <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider">Encaissements Réglés</p>
-          <p className="text-2xl font-bold text-emerald-400">{totalRegle.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
+          <p className="text-xl sm:text-2xl font-bold text-emerald-400 tabular-nums">{totalRegle.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
           <p className="text-[11px] text-emerald-500/70">Paiements encaissés</p>
         </div>
 
-        <div className="p-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 shadow-sm space-y-2">
+        <div className="p-4 sm:p-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 shadow-sm space-y-1.5">
           <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Reste à Recouvrer</p>
-          <p className="text-2xl font-bold text-amber-400">{totalRestant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
+          <p className="text-xl sm:text-2xl font-bold text-amber-400 tabular-nums">{totalRestant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
           <p className="text-[11px] text-amber-500/70">Encaissements en attente</p>
         </div>
 
-        <div className="p-5 rounded-2xl border border-purple-500/20 bg-purple-500/5 shadow-sm space-y-2">
+        <div className="p-4 sm:p-5 rounded-2xl border border-purple-500/20 bg-purple-500/5 shadow-sm space-y-1.5">
           <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider">Factures d'Avoir</p>
-          <p className="text-2xl font-bold text-purple-300">{totalAvoirs.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
+          <p className="text-xl sm:text-2xl font-bold text-purple-300 tabular-nums">{totalAvoirs.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
           <p className="text-[11px] text-purple-400/70">Annulations & régularisations</p>
         </div>
       </div>
 
       {/* Filters & Search Controls */}
       <div className="p-4 rounded-2xl border border-border bg-card shadow-sm space-y-4">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+        <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 sm:gap-4">
           {/* Search Input */}
-          <div className="relative flex-1 w-full">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <div className="relative flex-1 w-full min-w-0">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
               placeholder="Rechercher par N° Facture, Client ou N° Police..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-10 bg-muted/30"
+              className="pl-10 h-10 bg-muted/30 w-full"
             />
           </div>
 
           {/* Type Filter */}
-          <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-            <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Type:</span>
+          <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto pb-1 lg:pb-0 no-scrollbar">
+            <span className="text-xs font-medium text-muted-foreground whitespace-nowrap hidden sm:inline">Type:</span>
             {[
               { id: 'ALL', label: 'Tous' },
               { id: 'STANDARD', label: 'Factures' },
@@ -191,7 +190,7 @@ export default function FacturesPage() {
                 key={t.id}
                 onClick={() => setSelectedType(t.id)}
                 className={cn(
-                  'px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap',
+                  'px-3 py-1.5 rounded-xl text-xs font-medium transition-all whitespace-nowrap flex-shrink-0',
                   selectedType === t.id
                     ? 'bg-primary text-primary-foreground shadow-sm'
                     : 'bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -203,12 +202,12 @@ export default function FacturesPage() {
           </div>
 
           {/* Status Filter */}
-          <div className="flex items-center gap-2 w-full md:w-auto">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <span className="text-xs font-medium text-muted-foreground whitespace-nowrap">Statut:</span>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="h-9 px-3 rounded-xl border border-border bg-muted/30 text-xs font-medium text-foreground focus:outline-none"
+              className="h-9 px-3 rounded-xl border border-border bg-muted/30 text-xs font-medium text-foreground focus:outline-none w-full sm:w-auto"
             >
               <option value="ALL">Tous les statuts</option>
               <option value="PAID">Payé</option>
@@ -219,10 +218,10 @@ export default function FacturesPage() {
         </div>
       </div>
 
-      {/* Invoices Table */}
+      {/* Invoices Table with horizontal scroll */}
       <div className="rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+        <div className="overflow-x-auto w-full">
+          <table className="w-full text-left border-collapse min-w-[780px]">
             <thead>
               <tr className="border-b border-border bg-muted/40 text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
                 <th className="py-3.5 px-4">N° Facture</th>
@@ -253,17 +252,17 @@ export default function FacturesPage() {
                 filteredInvoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
                     {/* Invoice Number */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-foreground">
+                    <td className="py-3.5 px-4 font-mono font-bold text-foreground whitespace-nowrap">
                       {inv.invoiceNumber}
                     </td>
 
                     {/* Date */}
-                    <td className="py-3.5 px-4 text-muted-foreground">
+                    <td className="py-3.5 px-4 text-muted-foreground whitespace-nowrap">
                       {inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('fr-FR') : 'N/A'}
                     </td>
 
                     {/* Type Badge */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       <span
                         className={cn(
                           'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border',
@@ -277,23 +276,23 @@ export default function FacturesPage() {
                     </td>
 
                     {/* Client Name */}
-                    <td className="py-3.5 px-4 font-semibold text-foreground">
+                    <td className="py-3.5 px-4 font-semibold text-foreground truncate max-w-[150px]">
                       {inv.clientName}
                     </td>
 
                     {/* Policy & Category */}
-                    <td className="py-3.5 px-4">
+                    <td className="py-3.5 px-4 whitespace-nowrap">
                       <p className="font-mono text-xs text-foreground font-medium">{inv.policyNumber || '-'}</p>
                       <p className="text-[10px] text-muted-foreground">{inv.category || 'Assurance'}</p>
                     </td>
 
                     {/* Amount TTC */}
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-foreground">
+                    <td className="py-3.5 px-4 text-right font-mono font-bold text-foreground whitespace-nowrap">
                       {inv.amountTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH
                     </td>
 
                     {/* Status Badge */}
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
                       <span
                         className={cn(
                           'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border',
@@ -307,7 +306,7 @@ export default function FacturesPage() {
                     </td>
 
                     {/* Actions */}
-                    <td className="py-3.5 px-4 text-center">
+                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
                         <Button
                           onClick={() => handleOpenPdf(inv.id)}
@@ -342,8 +341,8 @@ export default function FacturesPage() {
 
       {/* Proforma Modal */}
       {showProformaModal && (
-        <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3.5 sm:p-4">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto p-5 sm:p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                 <Plus className="w-4 h-4 text-primary" />
@@ -358,7 +357,7 @@ export default function FacturesPage() {
             </div>
 
             <form onSubmit={handleCreateProforma} className="space-y-4 text-xs">
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label htmlFor="clientName">Nom du Client / Prospect</Label>
                 <Input
                   id="clientName"
@@ -366,21 +365,23 @@ export default function FacturesPage() {
                   onChange={(e) => setProformaData({ ...proformaData, clientName: e.target.value })}
                   placeholder="Ex: Société Atlas Transport"
                   required
+                  className="h-9"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
                   <Label htmlFor="policyNumber">Police / Proposition</Label>
                   <Input
                     id="policyNumber"
                     value={proformaData.policyNumber}
                     onChange={(e) => setProformaData({ ...proformaData, policyNumber: e.target.value })}
                     placeholder="POL-PRO-001"
+                    className="h-9"
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label htmlFor="category">Branche / Catégorie</Label>
                   <select
                     id="category"
@@ -398,8 +399,8 @@ export default function FacturesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
                   <Label htmlFor="amountTTC">Montant Total TTC (DH)</Label>
                   <Input
                     id="amountTTC"
@@ -407,10 +408,11 @@ export default function FacturesPage() {
                     value={proformaData.amountTTC}
                     onChange={(e) => setProformaData({ ...proformaData, amountTTC: parseFloat(e.target.value) || 0 })}
                     required
+                    className="h-9"
                   />
                 </div>
 
-                <div className="space-y-1">
+                <div className="space-y-1.5">
                   <Label htmlFor="tvaRate">Taux TVA (%)</Label>
                   <Input
                     id="tvaRate"
@@ -418,25 +420,27 @@ export default function FacturesPage() {
                     value={proformaData.tvaRate}
                     onChange={(e) => setProformaData({ ...proformaData, tvaRate: parseFloat(e.target.value) || 14 })}
                     required
+                    className="h-9"
                   />
                 </div>
               </div>
 
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 <Label htmlFor="notes">Notes / Observations</Label>
                 <Input
                   id="notes"
                   value={proformaData.notes}
                   onChange={(e) => setProformaData({ ...proformaData, notes: e.target.value })}
                   placeholder="Devis valable 30 jours..."
+                  className="h-9"
                 />
               </div>
 
-              <div className="flex items-center justify-end gap-3 pt-3 border-t border-border">
-                <Button type="button" variant="outline" onClick={() => setShowProformaModal(false)}>
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-border">
+                <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setShowProformaModal(false)}>
                   Annuler
                 </Button>
-                <Button type="submit">Générer Proforma</Button>
+                <Button type="submit" className="w-full sm:w-auto">Générer Proforma</Button>
               </div>
             </form>
           </div>

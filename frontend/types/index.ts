@@ -1,14 +1,17 @@
 // ─── User ─────────────────────────────────────────────────────────────────────
-export type UserRole = 'USER' | 'ADMIN';
+export type UserRole = 'USER' | 'ADMIN' | 'OPERATOR';
 
 export interface User {
   id: string;
   username: string;
   email: string;
   role: UserRole;
+  enabled?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type UserResponse = User;
 
 export interface AuthResponse {
   token: string;

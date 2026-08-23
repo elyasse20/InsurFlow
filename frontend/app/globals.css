@@ -76,6 +76,8 @@
 
 html {
   color-scheme: light;
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 html.dark {
@@ -89,13 +91,27 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.25s ease, color 0.25s ease;
+  overflow-x: hidden;
+  max-width: 100vw;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 /* ── Scrollbar styling ───────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 9999px; }
 ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
+
+/* Hide scrollbar utility */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
 
 /* ── Text selection ──────────────────────────────────────────────────────── */
 ::selection { background-color: hsl(var(--primary) / 0.25); color: hsl(var(--foreground)); }
@@ -106,84 +122,46 @@ body {
   outline-offset: 2px;
 }
 
-/* ── Theme transition — smooth switch ────────────────────────────────────── */
-*, *::before, *::after {
-  transition-property: background-color, border-color, color;
-  transition-duration: 0.2s;
-  transition-timing-function: ease;
-}
-
 /* ── Smooth transitions for interactive elements ─────────────────────────── */
 a, button { transition: all 0.15s ease; }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DESIGN SYSTEM — SPACING & WHITESPACE
-   These rules enforce consistent, breathable spacing across all pages.
+   DESIGN SYSTEM — RESPONSIVE SPACING & WHITESPACE
    ═══════════════════════════════════════════════════════════════════════════ */
 
-/* ── Page-level section spacing ──────────────────────────────────────────── */
-/*  All direct children of .space-y-8 get extra bottom margin on large screens */
+/* Page-level section spacing */
 @media (min-width: 1024px) {
   .space-y-8 > * + * {
-    margin-top: 2.5rem; /* 40px instead of 32px on desktop */
+    margin-top: 2rem;
   }
 }
 
-/* ── Card breathing room ─────────────────────────────────────────────────── */
-/*  Any rounded card with border gets at least 1.5rem (24px) padding */
+/* Card breathing room */
 .rounded-xl.border.bg-card {
-  padding: 1.5rem;           /* default — pages can override with p-X utility */
+  padding: 1.25rem;
+}
+@media (min-width: 640px) {
+  .rounded-xl.border.bg-card {
+    padding: 1.5rem;
+  }
 }
 
-/* ── Table rows: more vertical breathing room ────────────────────────────── */
+/* Table rows: vertical breathing room */
 thead th {
-  padding-top: 0.875rem !important;    /* 14px */
-  padding-bottom: 0.875rem !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
 }
 tbody td {
-  padding-top: 0.875rem !important;
-  padding-bottom: 0.875rem !important;
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
 }
 
-/* ── Section heading spacing ─────────────────────────────────────────────── */
 h1, h2, h3, h4 {
   letter-spacing: -0.01em;
 }
 
-/* ── Form fields: space out labels from inputs ───────────────────────────── */
-.space-y-1\.5 {
-  row-gap: 0.5rem;
-}
-
-/* ── Badge: slightly more horizontal padding ─────────────────────────────── */
-.badge, [class*="badge"] {
-  padding-left: 0.6rem;
-  padding-right: 0.6rem;
-}
-
-/* ── Separator: give vertical breathing room ─────────────────────────────── */
-[data-slot="separator"][aria-orientation="horizontal"] {
-  margin-top: 0.25rem;
-  margin-bottom: 0.25rem;
-}
-
-/* ── Alert/info banners: more padding ────────────────────────────────────── */
+/* Alert/info banners */
 [role="alert"], .alert {
-  padding: 1rem 1.25rem;
+  padding: 0.875rem 1rem;
   border-radius: 0.75rem;
-}
-
-/* ── Stat/KPI footer rows ────────────────────────────────────────────────── */
-.kpi-row {
-  gap: 1.25rem;
-}
-
-/* ── Empty state containers: more padding ────────────────────────────────── */
-.empty-state {
-  padding: 5rem 2rem;
-}
-
-/* ── Utility: comfortable section gap used in page layouts ───────────────── */
-.section-gap > * + * {
-  margin-top: 2rem;
 }

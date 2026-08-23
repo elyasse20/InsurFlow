@@ -160,12 +160,12 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
     <Sheet open={open} onOpenChange={handleOpenChange}>
       <SheetContent
         side="right"
-        className="w-full sm:max-w-xl flex flex-col p-0 overflow-y-auto"
+        className="w-full max-w-full sm:max-w-xl flex flex-col p-0 overflow-hidden h-full"
       >
         {/* Sheet Header */}
-        <SheetHeader className="px-6 pt-6 pb-4 border-b border-border">
+        <SheetHeader className="px-4 sm:px-6 pt-5 sm:pt-6 pb-4 border-b border-border flex-shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
               <User className="w-5 h-5 text-primary" />
             </div>
             <div>
@@ -177,8 +177,8 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
           </div>
         </SheetHeader>
 
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden min-h-0">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 sm:py-6 space-y-5 sm:space-y-6">
 
             {/* Error alert */}
             {error && (
@@ -222,11 +222,11 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
                 <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                   Identité & Coordonnées
                 </p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                   <FieldRow label="Nom" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Nom" />
                   <FieldRow label="Prénom" id="prenom" value={form.prenom} onChange={set('prenom')} required placeholder="Prénom" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                   <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 6XX XXX XXX" />
                   <FieldRow label="CIN" id="cin" value={form.cin} onChange={set('cin')} required placeholder="A123456" />
                 </div>
@@ -241,11 +241,11 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
                   Raison Sociale & Informations Légales
                 </p>
                 <FieldRow label="Nom de la Société" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Raison sociale / Nom société" />
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                   <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 5XX XXX XXX" />
                   <FieldRow label="RC (Registre commerce)" id="rc" value={form.rc} onChange={set('rc')} required placeholder="RC N°" />
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                   <FieldRow
                     label="ICE (15 chiffres)"
                     id="ice"
@@ -269,7 +269,7 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
                 Situation financière
               </p>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
                 <FieldRow label="Budget (DH)" id="budget" type="number" min="0" value={form.budget} onChange={set('budget')} placeholder="0" />
                 <FieldRow label="Crédit (DH)" id="credit" type="number" min="0" value={form.credit} onChange={set('credit')} placeholder="0" />
               </div>
@@ -355,19 +355,19 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
           </div>
 
           {/* Footer — sticky */}
-          <div className="px-6 py-4 border-t border-border bg-card/50 backdrop-blur-sm flex gap-3">
+          <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-t border-border bg-card/95 backdrop-blur-sm flex flex-col-reverse sm:flex-row gap-2.5 sm:gap-3 flex-shrink-0">
             <Button
               type="button"
               variant="outline"
               onClick={() => handleOpenChange(false)}
-              className="flex-1"
+              className="w-full sm:flex-1 h-10"
               disabled={saving}
             >
               Annuler
             </Button>
             <Button
               type="submit"
-              className="flex-1 shadow-lg shadow-primary/20"
+              className="w-full sm:flex-1 shadow-lg shadow-primary/20 h-10"
               disabled={saving}
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -404,7 +404,7 @@ function FieldRow({
         pattern={pattern}
         min={min}
         autoComplete={type === 'number' ? 'off' : id}
-        className="bg-muted/30 border-border focus:border-primary"
+        className="bg-muted/30 border-border focus:border-primary w-full"
       />
     </div>
   );

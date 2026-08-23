@@ -56,27 +56,26 @@ function KpiCard({
   icon: React.ElementType; color: string; loading: boolean;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card p-6 space-y-4 relative overflow-hidden group hover:border-primary/30 transition-colors">
+    <div className="rounded-xl border border-border bg-card p-4 sm:p-5 space-y-3 relative overflow-hidden group hover:border-primary/30 transition-all shadow-sm">
       <div className={`absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity bg-gradient-to-br ${color} rounded-xl`} />
-      <div className="relative flex items-start justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{label}</p>
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center bg-gradient-to-br ${color}`}>
-          <Icon className="w-4 h-4 text-white" />
+      <div className="relative flex items-start justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">{label}</p>
+        <div className={`w-8 h-8 rounded-xl flex items-center justify-center bg-gradient-to-br ${color} flex-shrink-0`}>
+          <Icon className="w-4 h-4 text-primary" />
         </div>
       </div>
       <div className="relative">
         {loading ? (
-          <Skeleton className="h-9 w-36" />
+          <Skeleton className="h-8 w-28" />
         ) : (
-          <p className="text-2xl font-bold text-foreground tabular-nums">{value}</p>
+          <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums truncate">{value}</p>
         )}
         {sub && !loading && (
-          <p className="text-xs text-muted-foreground mt-1">{sub}</p>
+          <p className="text-[11px] text-muted-foreground mt-1 truncate">{sub}</p>
         )}
       </div>
     </div>
   );
-
 }
 
 /** Simple CSS-only horizontal bar chart */
@@ -92,9 +91,9 @@ function BarChart({ data, maxVal, colorFn }: {
         const color = colorFn ? colorFn(i) : CHART_COLORS[i % CHART_COLORS.length];
         return (
           <div key={d.label} className="space-y-1">
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span className="truncate max-w-[160px]">{d.label}</span>
-              <span className="font-semibold tabular-nums">{Math.round(d.value)}</span>
+            <div className="flex justify-between text-xs text-muted-foreground gap-2">
+              <span className="truncate max-w-[160px] sm:max-w-[200px]">{d.label}</span>
+              <span className="font-semibold tabular-nums flex-shrink-0">{Math.round(d.value)}</span>
             </div>
             <div className="h-2 rounded-full bg-muted/50 overflow-hidden">
               <div
@@ -116,8 +115,7 @@ function DonutChart({ data }: { data: CategoryStat[] }) {
     <div className="flex items-center justify-center h-40 text-sm text-muted-foreground">Aucune donnée</div>
   );
 
-  // Build SVG path segments
-  const R = 70; const CX = 80; const CY = 80;
+  const R = 64; const CX = 75; const CY = 75;
   let cumPct = 0;
   const segments: { pct: number; color: string; label: string; count: number }[] = [];
 
@@ -142,22 +140,22 @@ function DonutChart({ data }: { data: CategoryStat[] }) {
   });
 
   return (
-    <div className="flex items-center gap-6">
-      <svg width="160" height="160" viewBox="0 0 160 160" className="flex-shrink-0">
+    <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6">
+      <svg width="150" height="150" viewBox="0 0 150 150" className="flex-shrink-0">
         <circle cx={CX} cy={CY} r={R} fill="none" />
         {paths}
         {/* Center hole */}
-        <circle cx={CX} cy={CY} r={44} fill="hsl(var(--card))" />
-        <text x={CX} y={CY - 6} textAnchor="middle" fill="hsl(var(--foreground))" fontSize="20" fontWeight="bold">{total}</text>
-        <text x={CX} y={CY + 12} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="9">opérations</text>
+        <circle cx={CX} cy={CY} r={40} fill="hsl(var(--card))" />
+        <text x={CX} y={CY - 4} textAnchor="middle" fill="hsl(var(--foreground))" fontSize="18" fontWeight="bold">{total}</text>
+        <text x={CX} y={CY + 12} textAnchor="middle" fill="hsl(var(--muted-foreground))" fontSize="8">opérations</text>
       </svg>
-      <div className="space-y-2 flex-1 min-w-0">
+      <div className="space-y-1.5 w-full flex-1 min-w-0">
         {segments.map((s, i) => (
-          <div key={i} className="flex items-center gap-2">
+          <div key={i} className="flex items-center gap-2 text-xs">
             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
-            <span className="text-xs text-muted-foreground truncate flex-1">{s.label}</span>
-            <span className="text-xs font-semibold tabular-nums text-foreground">{s.count}</span>
-            <span className="text-xs text-muted-foreground">({Math.round(s.pct * 100)}%)</span>
+            <span className="text-muted-foreground truncate flex-1">{s.label}</span>
+            <span className="font-semibold tabular-nums text-foreground">{s.count}</span>
+            <span className="text-muted-foreground">({Math.round(s.pct * 100)}%)</span>
           </div>
         ))}
       </div>
@@ -169,12 +167,12 @@ function DonutChart({ data }: { data: CategoryStat[] }) {
 function MonthlyBarChart({ data }: { data: LabelValue[] }) {
   const max = Math.max(...data.map(d => d.value), 1);
   return (
-    <div className="flex items-end gap-1.5 h-28 w-full">
+    <div className="flex items-end gap-1 sm:gap-1.5 h-28 w-full overflow-x-auto pb-1">
       {data.map((d, i) => {
         const pct = (d.value / max) * 100;
         const isThisMonth = i === data.length - 1;
         return (
-          <div key={d.label} className="flex-1 flex flex-col items-center gap-1 group">
+          <div key={d.label} className="flex-1 min-w-[20px] flex flex-col items-center gap-1 group">
             <div className="w-full flex-1 flex items-end">
               <div
                 className="w-full rounded-t transition-all duration-500 ease-out"
@@ -186,7 +184,7 @@ function MonthlyBarChart({ data }: { data: LabelValue[] }) {
                 title={`${d.value} opérations`}
               />
             </div>
-            <span className="text-[9px] text-muted-foreground rotate-[-45deg] origin-center whitespace-nowrap overflow-hidden w-6 text-center leading-none">
+            <span className="text-[8px] sm:text-[9px] text-muted-foreground rotate-[-45deg] origin-center whitespace-nowrap overflow-hidden w-5 text-center leading-none">
               {formatMonthLabel(d.label)}
             </span>
           </div>
@@ -213,7 +211,6 @@ export default function DashboardPage() {
       .finally(() => setLoading(false));
   }, [exercice]);
 
-  const maxMonth = stats ? Math.max(...stats.byMonth.map(d => d.value), 1) : 1;
   const maxCompagne = stats ? Math.max(...stats.byCompagne.map(d => d.value), 1) : 1;
 
   const txRecouvrement = stats && stats.montantTotal > 0
@@ -221,24 +218,26 @@ export default function DashboardPage() {
     : 0;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-6 sm:space-y-8">
       {/* Page header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="space-y-1.5">
+        <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center">
-              <BarChart2 className="w-5 h-5 text-primary" />
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <BarChart2 className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-foreground">Tableau de bord</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Tableau de bord</h1>
           </div>
-          <p className="text-sm text-muted-foreground pl-12">
+          <p className="text-xs sm:text-sm text-muted-foreground pl-10 sm:pl-12">
             Vue d'ensemble de l'activité — Exercice {exercice}
           </p>
         </div>
-        <ExerciceSelector
-          selectedExercice={exercice}
-          onExerciceChange={setExercice}
-        />
+        <div className="flex-shrink-0">
+          <ExerciceSelector
+            selectedExercice={exercice}
+            onExerciceChange={setExercice}
+          />
+        </div>
       </div>
 
       {error && (
@@ -248,8 +247,8 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* KPI cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-5">
+      {/* Responsive KPI cards: 1 col on mobile -> 2 on sm -> 3 on md -> 5 on xl */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3.5 sm:gap-5">
         <KpiCard loading={loading} label="Opérations" icon={FileText}
           value={loading ? '…' : String(stats?.totalProductions ?? 0)}
           sub={`exercice ${exercice}`}
@@ -273,11 +272,11 @@ export default function DashboardPage() {
       </div>
 
       {/* Charts row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 sm:gap-8">
 
         {/* Monthly bar chart */}
-        <div className="lg:col-span-2 rounded-xl border border-border bg-card p-7 space-y-5">
-          <div className="flex items-center justify-between">
+        <div className="lg:col-span-2 rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold text-foreground">Productions par mois</h2>
               <p className="text-xs text-muted-foreground">Exercice {exercice} (janv. à déc.)</p>
@@ -294,7 +293,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Status donut / breakdown */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Statuts règlements</h2>
             <p className="text-xs text-muted-foreground">État des paiements</p>
@@ -333,10 +332,10 @@ export default function DashboardPage() {
       </div>
 
       {/* Category + Compagne charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8">
 
         {/* Category donut */}
-        <div className="rounded-xl border border-border bg-card p-7 space-y-5">
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Répartition par catégorie</h2>
             <p className="text-xs text-muted-foreground">Toutes les opérations</p>
@@ -349,7 +348,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Top compagnes */}
-        <div className="rounded-xl border border-border bg-card p-6 space-y-4">
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Top compagnies</h2>
             <p className="text-xs text-muted-foreground">Nombre d'opérations par CIE</p>
@@ -367,8 +366,8 @@ export default function DashboardPage() {
       </div>
 
       {/* Recent productions */}
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+      <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+        <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-border">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Dernières opérations</h2>
             <p className="text-xs text-muted-foreground">5 opérations les plus récentes</p>
@@ -380,11 +379,11 @@ export default function DashboardPage() {
         <div className="divide-y divide-border/50">
           {loading ? (
             Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 px-6 py-4">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-4 w-40" />
-                <Skeleton className="h-5 w-20 rounded-full" />
-                <Skeleton className="h-4 w-24 ml-auto" />
+              <div key={i} className="flex items-center gap-4 px-4 sm:px-6 py-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+                <Skeleton className="h-4 w-20 ml-auto" />
               </div>
             ))
           ) : (stats?.recentProductions ?? []).length === 0 ? (
@@ -396,26 +395,40 @@ export default function DashboardPage() {
             (stats?.recentProductions ?? []).map(prod => {
               const sc = STATUS_CFG[(prod.reglementStatus ?? 'EN_ATTENTE') as keyof typeof STATUS_CFG] ?? STATUS_CFG.EN_ATTENTE;
               return (
-                <div key={prod.id} className="flex items-center gap-5 px-7 py-5 hover:bg-muted/30 transition-colors group">
-                  <span className="font-mono text-sm text-primary font-semibold w-28 flex-shrink-0">{prod.numpolice}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{prod.client}</p>
-                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                      <Building2 className="w-3 h-3" />{prod.compagne}
+                <div
+                  key={prod.id}
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 sm:px-6 py-3.5 sm:py-4 hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="font-mono text-xs sm:text-sm text-primary font-semibold flex-shrink-0">
+                      {prod.numpolice}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-medium text-foreground truncate">{prod.client}</p>
+                      <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                        <Building2 className="w-3 h-3" />{prod.compagne}
+                      </div>
                     </div>
                   </div>
-                  <Badge variant="secondary" className="text-xs font-normal flex-shrink-0">{prod.category}</Badge>
-                  {prod.reglementStatus && (
-                    <Badge variant={sc.cls as any} className="text-xs flex-shrink-0">{sc.label}</Badge>
-                  )}
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-semibold text-green-400 tabular-nums">{formatAmount(prod.montant)}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(prod.dateEff)}</p>
+
+                  <div className="flex items-center justify-between sm:justify-end gap-3 flex-shrink-0">
+                    <Badge variant="secondary" className="text-[10px] font-normal">{prod.category}</Badge>
+                    {prod.reglementStatus && (
+                      <Badge variant={sc.cls as any} className="text-[10px]">{sc.label}</Badge>
+                    )}
+                    <div className="text-right">
+                      <p className="text-xs sm:text-sm font-semibold text-green-400 tabular-nums">{formatAmount(prod.montant)}</p>
+                      <p className="text-[10px] text-muted-foreground">{formatDate(prod.dateEff)}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      onClick={() => router.push(`/regelements/${prod.id}`)}
+                    >
+                      <CreditCard className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => router.push(`/regelements/${prod.id}`)}>
-                    <CreditCard className="w-3.5 h-3.5" />
-                  </Button>
                 </div>
               );
             })

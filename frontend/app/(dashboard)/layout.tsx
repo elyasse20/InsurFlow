@@ -1,17 +1,24 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import NavBar from '@/components/NavBar';
 import Header from '@/components/Header';
 
 /**
- * Dashboard layout — wraps all protected routes with NavBar + Header + auth guard.
+ * Dashboard layout — wraps all protected routes with responsive NavBar + Header + auth guard.
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  // Close mobile nav on route change
+  useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -28,12 +35,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <NavBar />
-      <div className="flex-1 ml-64 min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 p-6 sm:p-8 overflow-y-auto">
-          <div className="max-w-7xl mx-auto w-full space-y-8">
+    <div className="flex min-h-screen bg-background overflow-x-hidden w-full">
+      <NavBar
+        mobileOpen={mobileNavOpen}
+        onCloseMobile={() => setMobileNavOpen(false)}
+      />
+      <div className="flex-1 lg:ml-64 ml-0 min-h-screen flex flex-col min-w-0 w-full overflow-x-hidden">
+        <Header onToggleMobileNav={() => setMobileNavOpen(v => !v)} />
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-y-auto w-full min-w-0">
+          <div className="max-w-7xl mx-auto w-full space-y-6 sm:space-y-8 min-w-0">
             {children}
           </div>
         </main>

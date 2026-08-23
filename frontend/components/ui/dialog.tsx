@@ -17,7 +17,7 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      'fixed inset-0 z-50 bg-black/50 backdrop-blur-sm',
+      'fixed inset-0 z-50 bg-black/60 backdrop-blur-sm',
       'data-[state=open]:animate-in data-[state=closed]:animate-out',
       'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
       className
@@ -37,7 +37,7 @@ const DialogContent = React.forwardRef<
       ref={ref}
       className={cn(
         'fixed left-[50%] top-[50%] z-50 translate-x-[-50%] translate-y-[-50%]',
-        'w-full max-w-lg bg-card border border-border rounded-2xl shadow-2xl p-7',
+        'w-[calc(100%-2rem)] max-w-lg max-h-[88vh] overflow-y-auto bg-card border border-border rounded-2xl shadow-2xl p-5 sm:p-7',
         'data-[state=open]:animate-in data-[state=closed]:animate-out',
         'data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0',
         'data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
@@ -49,7 +49,7 @@ const DialogContent = React.forwardRef<
       {...props}
     >
       {children}
-      <DialogClose className="absolute right-5 top-5 rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+      <DialogClose className="absolute right-4 top-4 rounded-lg p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
         <X className="h-4 w-4" />
         <span className="sr-only">Fermer</span>
       </DialogClose>
@@ -61,7 +61,7 @@ DialogContent.displayName = DialogPrimitive.Content.displayName;
 function DialogHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn('flex flex-col space-y-1.5 pb-5 mb-1', className)}
+      className={cn('flex flex-col space-y-1.5 pb-4 mb-1 text-left', className)}
       {...props}
     />
   );

@@ -40,12 +40,12 @@ function TableSkeleton() {
               <Skeleton className="h-4 w-32" />
             </div>
           </TableCell>
-          <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-          <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+          <TableCell><Skeleton className="h-4 w-32" /></TableCell>
           <TableCell><Skeleton className="h-4 w-20" /></TableCell>
           <TableCell><Skeleton className="h-4 w-20" /></TableCell>
           <TableCell>
-            <div className="flex gap-2">
+            <div className="flex justify-end gap-1">
               <Skeleton className="h-8 w-8 rounded-lg" />
               <Skeleton className="h-8 w-8 rounded-lg" />
             </div>
@@ -104,22 +104,21 @@ export default function ClientsPage() {
 
   const isFiltered = search.trim().length > 0;
 
-  /* ── Render ────────────────────────────────────────────────────────────── */
   return (
-    <div className="space-y-8">
+    <div className="space-y-6 sm:space-y-8">
 
       {/* ── Page Header ─────────────────────────────────────────────────── */}
-      <div className="flex items-start justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Users className="w-4 h-4 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
               Clients
             </h1>
           </div>
-          <p className="text-sm text-muted-foreground pl-10">
+          <p className="text-xs sm:text-sm text-muted-foreground pl-10">
             {loading
               ? 'Chargement du portefeuille...'
               : `${clients.length} client${clients.length > 1 ? 's' : ''} dans votre portefeuille`
@@ -127,23 +126,23 @@ export default function ClientsPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {/* Refresh button */}
           <Button
             variant="outline"
             size="icon"
             onClick={() => fetchClients(search || undefined, true)}
             disabled={refreshing}
-            className="h-9 w-9"
+            className="h-9 w-9 flex-shrink-0"
             title="Actualiser"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           </Button>
 
-          {/* New client button — opens Sheet, NO page navigation */}
+          {/* New client button */}
           <Button
             onClick={() => setSheetOpen(true)}
-            className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow"
+            className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow h-9"
           >
             <Plus className="w-4 h-4" />
             Nouveau client
@@ -152,15 +151,15 @@ export default function ClientsPage() {
       </div>
 
       {/* ── Search bar ──────────────────────────────────────────────────── */}
-      <form onSubmit={handleSearch} className="flex gap-2 max-w-lg">
-        <div className="relative flex-1">
+      <form onSubmit={handleSearch} className="flex gap-2 max-w-lg w-full">
+        <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 pointer-events-none" />
           <Input
             type="text"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Rechercher par nom..."
-            className="pl-9 pr-9 bg-muted/30 border-border focus:border-primary h-9"
+            className="pl-9 pr-9 bg-muted/30 border-border focus:border-primary h-9 w-full"
           />
           {search && (
             <button
@@ -172,173 +171,174 @@ export default function ClientsPage() {
             </button>
           )}
         </div>
-        <Button type="submit" variant="secondary" size="sm" className="px-4">
+        <Button type="submit" variant="secondary" size="sm" className="px-3 sm:px-4 h-9 flex-shrink-0">
           Rechercher
         </Button>
       </form>
 
       {/* ── Table card ──────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow className="hover:bg-transparent border-border/60">
-              <TableHead className="w-[110px]">Type</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Téléphone</TableHead>
-              <TableHead>Adresse</TableHead>
-              <TableHead className="text-right">Budget</TableHead>
-              <TableHead className="text-right">Crédit</TableHead>
-              <TableHead className="w-[100px] text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-
-          <TableBody>
-            {loading ? (
-              <TableSkeleton />
-            ) : clients.length === 0 ? (
-              /* ── Empty state ─────────────────────────────────────────── */
-              <TableRow className="hover:bg-transparent">
-                <TableCell colSpan={7} className="p-0">
-                  <div className="relative overflow-hidden">
-                    <EmptyClients
-                      onAddClient={() => setSheetOpen(true)}
-                      isFiltered={isFiltered}
-                    />
-                  </div>
-                </TableCell>
+        <div className="overflow-x-auto w-full">
+          <Table className="min-w-[680px]">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent border-border/60">
+                <TableHead className="w-[110px]">Type</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Téléphone</TableHead>
+                <TableHead>Adresse</TableHead>
+                <TableHead className="text-right">Budget</TableHead>
+                <TableHead className="text-right">Crédit</TableHead>
+                <TableHead className="w-[90px] text-right">Actions</TableHead>
               </TableRow>
-            ) : (
-              /* ── Data rows ───────────────────────────────────────────── */
-              clients.map(client => (
-                <TableRow key={client.id} className="border-border/40 group">
+            </TableHeader>
 
-                  {/* Type badge */}
-                  <TableCell>
-                    <Badge
-                      variant={client.type === 'particulier' ? 'blue' : 'violet'}
-                    >
-                      {client.type === 'particulier'
-                        ? <User className="w-3 h-3" />
-                        : <Building2 className="w-3 h-3" />
-                      }
-                      {client.type === 'particulier' ? 'Particulier' : 'Société'}
-                    </Badge>
-                  </TableCell>
-
-                  {/* Client name with avatar */}
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-8 w-8 flex-shrink-0">
-                        <AvatarFallback className="text-[11px] font-semibold">
-                          {client.nom.slice(0, 2).toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">
-                          {client.nom}{client.prenom ? ` ${client.prenom}` : ''}
-                        </p>
-                        {client.cin && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            CIN: {client.cin}
-                          </p>
-                        )}
-                        {client.ice && (
-                          <p className="text-xs text-muted-foreground truncate">
-                            ICE: {client.ice}
-                          </p>
-                        )}
-                      </div>
+            <TableBody>
+              {loading ? (
+                <TableSkeleton />
+              ) : clients.length === 0 ? (
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={7} className="p-0">
+                    <div className="relative overflow-hidden">
+                      <EmptyClients
+                        onAddClient={() => setSheetOpen(true)}
+                        isFiltered={isFiltered}
+                      />
                     </div>
                   </TableCell>
-
-                  {/* Tel */}
-                  <TableCell className="text-sm text-muted-foreground">
-                    {client.tel}
-                  </TableCell>
-
-                  {/* Adresse */}
-                  <TableCell className="max-w-[200px]">
-                    <p className="text-sm text-muted-foreground truncate" title={client.adresse}>
-                      {client.adresse}
-                    </p>
-                  </TableCell>
-
-                  {/* Budget */}
-                  <TableCell className="text-right">
-                    <span className="text-sm font-medium text-foreground tabular-nums">
-                      {client.budget.toLocaleString('fr-MA')} DH
-                    </span>
-                  </TableCell>
-
-                  {/* Crédit */}
-                  <TableCell className="text-right">
-                    <span className={`text-sm font-semibold tabular-nums ${
-                      client.credit > 0 ? 'text-amber-400' : 'text-green-400'
-                    }`}>
-                      {client.credit.toLocaleString('fr-MA')} DH
-                    </span>
-                  </TableCell>
-
-                  {/* Actions */}
-                  <TableCell>
-                    <div className="flex items-center justify-end gap-1">
-                      {/* Edit */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                        onClick={() => router.push(`/clients/${client.id}/edit`)}
-                        title="Modifier"
-                      >
-                        <Edit2 className="w-3.5 h-3.5" />
-                      </Button>
-
-                      {/* Delete with confirmation dialog */}
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                            title="Supprimer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Supprimer ce client ?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Vous êtes sur le point de supprimer{' '}
-                              <span className="font-semibold text-foreground">
-                                {client.nom}{client.prenom ? ` ${client.prenom}` : ''}
-                              </span>
-                              . Cette action est irréversible et supprimera toutes les données associées.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Annuler</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDelete(client.id)}>
-                              Supprimer
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                clients.map(client => (
+                  <TableRow key={client.id} className="border-border/40 group">
+
+                    {/* Type badge */}
+                    <TableCell>
+                      <Badge
+                        variant={client.type === 'particulier' ? 'blue' : 'violet'}
+                        className="text-[10px]"
+                      >
+                        {client.type === 'particulier'
+                          ? <User className="w-3 h-3" />
+                          : <Building2 className="w-3 h-3" />
+                        }
+                        {client.type === 'particulier' ? 'Particulier' : 'Société'}
+                      </Badge>
+                    </TableCell>
+
+                    {/* Client name with avatar */}
+                    <TableCell>
+                      <div className="flex items-center gap-2.5">
+                        <Avatar className="h-8 w-8 flex-shrink-0">
+                          <AvatarFallback className="text-[11px] font-semibold">
+                            {client.nom.slice(0, 2).toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            {client.nom}{client.prenom ? ` ${client.prenom}` : ''}
+                          </p>
+                          {client.cin && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              CIN: {client.cin}
+                            </p>
+                          )}
+                          {client.ice && (
+                            <p className="text-xs text-muted-foreground truncate">
+                              ICE: {client.ice}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </TableCell>
+
+                    {/* Tel */}
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {client.tel}
+                    </TableCell>
+
+                    {/* Adresse */}
+                    <TableCell className="max-w-[180px]">
+                      <p className="text-sm text-muted-foreground truncate" title={client.adresse}>
+                        {client.adresse}
+                      </p>
+                    </TableCell>
+
+                    {/* Budget */}
+                    <TableCell className="text-right whitespace-nowrap">
+                      <span className="text-sm font-medium text-foreground tabular-nums">
+                        {client.budget.toLocaleString('fr-MA')} DH
+                      </span>
+                    </TableCell>
+
+                    {/* Crédit */}
+                    <TableCell className="text-right whitespace-nowrap">
+                      <span className={`text-sm font-semibold tabular-nums ${
+                        client.credit > 0 ? 'text-amber-400' : 'text-green-400'
+                      }`}>
+                        {client.credit.toLocaleString('fr-MA')} DH
+                      </span>
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Edit */}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                          onClick={() => router.push(`/clients/${client.id}/edit`)}
+                          title="Modifier"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </Button>
+
+                        {/* Delete */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Supprimer ce client ?</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Vous êtes sur le point de supprimer{' '}
+                                <span className="font-semibold text-foreground">
+                                  {client.nom}{client.prenom ? ` ${client.prenom}` : ''}
+                                </span>
+                                . Cette action est irréversible et supprimera toutes les données associées.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Annuler</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDelete(client.id)}>
+                                Supprimer
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
-      {/* ── Stats footer (only when data exists) ────────────────────────── */}
+      {/* ── Stats footer ────────────────────────────────────────────────── */}
       {!loading && clients.length > 0 && (
-        <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-muted-foreground gap-2 px-1">
           <span>{clients.length} résultat{clients.length > 1 ? 's' : ''}</span>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3 sm:gap-4 flex-wrap">
             <span>
               Particuliers:{' '}
               <span className="font-medium text-blue-400">

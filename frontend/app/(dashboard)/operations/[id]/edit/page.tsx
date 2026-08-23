@@ -28,7 +28,7 @@ function StyledInput({ id, value, onChange, required = false, type = 'text', pla
   return (
     <Input id={id} type={type} value={value} onChange={onChange} required={required}
       placeholder={placeholder} readOnly={readOnly}
-      className="bg-muted/30 border-border focus:border-primary" />
+      className="bg-muted/30 border-border focus:border-primary w-full" />
   );
 }
 
@@ -154,7 +154,6 @@ export default function EditOperationPage() {
     };
 
   const totalRepartition = repartitions.reduce((s, r) => s + r.percent, 0);
-
   const montantTotal = params.reduce((s, p) => s + p.primes + p.taxe + p.taxepara + p.accessoire + p.cnpc, 0);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -180,20 +179,20 @@ export default function EditOperationPage() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto w-full space-y-8">
+    <div className="max-w-5xl mx-auto w-full space-y-6 sm:space-y-8">
       {/* Header — Modifier l'opération */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
+        <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => router.back()}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <FileText className="w-4 h-4 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Modifier l'opération</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Modifier l'opération</h1>
           </div>
-          <p className="text-sm text-muted-foreground pl-10">Modifier la police N° {form.numpolice}</p>
+          <p className="text-xs sm:text-sm text-muted-foreground pl-10">Modifier la police N° {form.numpolice}</p>
         </div>
       </div>
 
@@ -206,10 +205,10 @@ export default function EditOperationPage() {
         )}
 
         {/* Main info */}
-        <div className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-6">
+        <div className="rounded-xl border border-border bg-card shadow-sm p-4 sm:p-6 space-y-5">
           <h2 className="text-base font-semibold text-foreground">Informations générales</h2>
           <Separator />
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <FieldRow label="Nature" id="nature">
               <StyledSelect id="nature" value={form.natureOperation} onChange={setF('natureOperation')} required>
                 <option value="">-- Sélectionner --</option>
@@ -264,7 +263,7 @@ export default function EditOperationPage() {
                 <FieldRow label="Certificat" id="certificat">
                   <StyledInput id="certificat" value={form.certificat} onChange={setF('certificat')} placeholder="Ex: 2026/00217" />
                 </FieldRow>
-                <div className="col-span-2">
+                <div className="col-span-1 sm:col-span-2">
                   <FieldRow label="Navire" id="navire">
                     <StyledInput id="navire" value={form.navire} onChange={setF('navire')} placeholder="Ex: CLARKE QUAY" />
                   </FieldRow>
@@ -275,16 +274,16 @@ export default function EditOperationPage() {
         </div>
 
         {/* Parameters section */}
-        <div className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-5">
-          <div className="flex items-center justify-between">
+        <div className="rounded-xl border border-border bg-card shadow-sm p-4 sm:p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <TrendingUp className="w-4 h-4 text-primary" />
               <h2 className="text-base font-semibold text-foreground">Paramètres de tarification</h2>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
+            <div className="flex items-center justify-between sm:justify-end gap-4">
+              <div className="text-left sm:text-right">
                 <p className="text-xs text-muted-foreground">Total TTC</p>
-                <p className="text-lg font-bold text-green-400 tabular-nums">{montantTotal.toLocaleString('fr-MA')} DH</p>
+                <p className="text-base sm:text-lg font-bold text-green-400 tabular-nums">{montantTotal.toLocaleString('fr-MA')} DH</p>
               </div>
               <Button type="button" onClick={() => setParams(p => [...p, emptyParam()])} variant="outline" size="sm" className="gap-1.5">
                 <Plus className="w-3.5 h-3.5" /> Ajouter
@@ -292,8 +291,8 @@ export default function EditOperationPage() {
             </div>
           </div>
           <Separator />
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="overflow-x-auto w-full">
+            <table className="w-full min-w-[650px]">
               <thead>
                 <tr className="border-b border-border">
                   {['Paramètre', 'Primes', 'Taxe', 'Taxe Para', 'Accessoire', 'CNPC', 'Commission', ''].map(h => (
@@ -306,7 +305,7 @@ export default function EditOperationPage() {
                   <tr key={i}>
                     <td className="py-3 pr-3">
                       <select value={param.name} onChange={setParam(i, 'name')} required
-                        className="flex h-9 w-full rounded-lg border border-input bg-muted/30 px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground min-w-[160px]">
+                        className="flex h-9 w-full rounded-lg border border-input bg-muted/30 px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground min-w-[150px]">
                         <option value="" className="bg-card">-- Paramètre --</option>
                         {parametres.map(p => <option key={p.id} value={p.name} className="bg-card">{p.name}</option>)}
                       </select>
@@ -315,13 +314,13 @@ export default function EditOperationPage() {
                       <td key={k} className="py-3 pr-3">
                         <Input type="number" min="0" step="0.01" placeholder="0"
                           value={(param as any)[k] === 0 ? '' : (param as any)[k]} onChange={setParam(i, k)}
-                          className="bg-muted/30 border-border focus:border-primary w-24 h-9" />
+                          className="bg-muted/30 border-border focus:border-primary w-20 sm:w-24 h-9" />
                       </td>
                     ))}
                     <td className="py-3 pr-3">
                       <Input type="number" min="0" step="0.01" readOnly placeholder="0"
                         value={param.commission === 0 ? '' : param.commission}
-                        className="bg-muted/10 border-border text-muted-foreground w-24 h-9 cursor-not-allowed" />
+                        className="bg-muted/10 border-border text-muted-foreground w-20 sm:w-24 h-9 cursor-not-allowed" />
                     </td>
                     <td className="py-3">
                       {params.length > 1 && (
@@ -339,33 +338,33 @@ export default function EditOperationPage() {
         </div>
 
         {/* Répartition entre compagnies */}
-        <div className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-5">
-          <div className="flex items-center justify-between">
+        <div className="rounded-xl border border-border bg-card shadow-sm p-4 sm:p-6 space-y-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <PieChart className="w-4 h-4 text-primary" />
               <h2 className="text-base font-semibold text-foreground">Répartition entre compagnies</h2>
-              <span className="text-xs text-muted-foreground">(optionnel — ex: MARITIME)</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">(optionnel)</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between sm:justify-end gap-3">
               {repartitions.length > 0 && (
-                <span className={`text-sm font-semibold tabular-nums ${Math.abs(totalRepartition - 100) < 0.01 ? 'text-green-400' : 'text-amber-400'}`}>
+                <span className={`text-xs sm:text-sm font-semibold tabular-nums ${Math.abs(totalRepartition - 100) < 0.01 ? 'text-green-400' : 'text-amber-400'}`}>
                   Total: {totalRepartition.toFixed(1)}%
                 </span>
               )}
               <Button type="button" onClick={() => setRepartitions(r => [...r, emptyRepartition()])} variant="outline" size="sm" className="gap-1.5">
-                <Plus className="w-3.5 h-3.5" /> Ajouter compagnie
+                <Plus className="w-3.5 h-3.5" /> Ajouter
               </Button>
             </div>
           </div>
           <Separator />
           {repartitions.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Aucune répartition définie. Cliquez sur "Ajouter compagnie" pour configurer la répartition entre CIE.
+            <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">
+              Aucune répartition définie. Cliquez sur "Ajouter" pour configurer la répartition entre CIE.
             </p>
           ) : (
             <div className="space-y-3">
               {repartitions.map((rep, i) => (
-                <div key={i} className="flex gap-3 items-center">
+                <div key={i} className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 sm:items-center">
                   <div className="flex-1">
                     <StyledSelect
                       value={rep.compagneName}
@@ -380,20 +379,22 @@ export default function EditOperationPage() {
                       ))}
                     </StyledSelect>
                   </div>
-                  <div className="w-32 flex items-center gap-1.5">
-                    <Input
-                      type="number" min="0" max="100" step="0.1"
-                      placeholder="0"
-                      value={rep.percent || ''}
-                      onChange={setRepartition(i, 'percent')}
-                      className="bg-muted/30 border-border focus:border-primary"
-                    />
-                    <span className="text-sm text-muted-foreground font-medium">%</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-full sm:w-32 flex items-center gap-1.5">
+                      <Input
+                        type="number" min="0" max="100" step="0.1"
+                        placeholder="0"
+                        value={rep.percent || ''}
+                        onChange={setRepartition(i, 'percent')}
+                        className="bg-muted/30 border-border focus:border-primary"
+                      />
+                      <span className="text-sm text-muted-foreground font-medium">%</span>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
+                      onClick={() => setRepartitions(r => r.filter((_, idx) => idx !== i))}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-                  <Button type="button" variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0"
-                    onClick={() => setRepartitions(r => r.filter((_, idx) => idx !== i))}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
                 </div>
               ))}
               {repartitions.length > 0 && Math.abs(totalRepartition - 100) > 0.01 && (
@@ -407,9 +408,9 @@ export default function EditOperationPage() {
         </div>
 
         {/* Form actions */}
-        <div className="flex gap-3">
-          <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>Annuler</Button>
-          <Button type="submit" disabled={saving} className="flex-1 shadow-lg shadow-primary/20">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+          <Button type="button" variant="outline" className="flex-1 h-10" onClick={() => router.back()}>Annuler</Button>
+          <Button type="submit" disabled={saving} className="flex-1 shadow-lg shadow-primary/20 h-10">
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             {saving ? 'Enregistrement...' : 'Sauvegarder'}
           </Button>

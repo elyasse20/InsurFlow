@@ -57,20 +57,20 @@ export default function NewCompagnePage() {
   };
 
   return (
-    <div className="max-w-3xl mx-auto w-full space-y-8">
+    <div className="max-w-3xl mx-auto w-full space-y-6 sm:space-y-8">
       {/* Header — Nouvelle compagnie */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
+        <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => router.back()}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <Shield className="w-4 h-4 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Nouvelle compagnie</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Nouvelle compagnie</h1>
           </div>
-          <p className="text-sm text-muted-foreground pl-10">Définir les catégories et paramètres de la compagnie</p>
+          <p className="text-xs sm:text-sm text-muted-foreground pl-10">Définir les catégories et paramètres de la compagnie</p>
         </div>
       </div>
 
@@ -83,7 +83,7 @@ export default function NewCompagnePage() {
         )}
 
         {/* Company name */}
-        <div className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-3">
+        <div className="rounded-xl border border-border bg-card shadow-sm p-4 sm:p-6 space-y-3">
           <div className="space-y-1.5 sm:max-w-md">
             <Label htmlFor="compagneName">Nom de la compagnie <span className="text-destructive">*</span></Label>
             <Input
@@ -92,14 +92,14 @@ export default function NewCompagnePage() {
               onChange={e => setCompagneName(e.target.value)}
               required
               placeholder="Ex: AXA Assurance"
-              className="bg-muted/30 border-border focus:border-primary"
+              className="bg-muted/30 border-border focus:border-primary w-full"
             />
           </div>
         </div>
 
         {/* Categories */}
         {categories.map((cat, ci) => (
-          <div key={ci} className="rounded-xl border border-border bg-card shadow-sm p-6 space-y-5">
+          <div key={ci} className="rounded-xl border border-border bg-card shadow-sm p-4 sm:p-6 space-y-4 sm:space-y-5">
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <span className="w-6 h-6 rounded-md bg-primary/10 text-primary text-xs flex items-center justify-center font-bold">
@@ -115,7 +115,7 @@ export default function NewCompagnePage() {
               )}
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor={`cat-name-${ci}`}>Nom catégorie <span className="text-destructive">*</span></Label>
                 <Input id={`cat-name-${ci}`} value={cat.name} onChange={updateCat(ci, 'name')} required
@@ -134,26 +134,28 @@ export default function NewCompagnePage() {
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Paramètres de tarification</p>
               {cat.parameters.map((param, pi) => (
-                <div key={pi} className="flex gap-3 items-center">
+                <div key={pi} className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 sm:items-center">
                   <Input value={param.name} onChange={updateParam(ci, pi, 'name')} required
                     placeholder="Nom du paramètre"
                     className="flex-1 bg-muted/30 border-border focus:border-primary h-9" />
-                  <div className="relative w-32">
-                    <Input type="number" min="0" max="100" step="0.01"
-                      value={param.percent} onChange={updateParam(ci, pi, 'percent')} required
-                      placeholder="0.00"
-                      className="bg-muted/30 border-border focus:border-primary h-9 pr-8" />
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                  <div className="flex items-center gap-2">
+                    <div className="relative w-full sm:w-32">
+                      <Input type="number" min="0" max="100" step="0.01"
+                        value={param.percent} onChange={updateParam(ci, pi, 'percent')} required
+                        placeholder="0.00"
+                        className="bg-muted/30 border-border focus:border-primary h-9 pr-8" />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                    </div>
+                    {cat.parameters.length > 1 && (
+                      <Button type="button" variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                        onClick={() => removeParam(ci, pi)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
-                  {cat.parameters.length > 1 && (
-                    <Button type="button" variant="ghost" size="icon" className="h-8 w-8 flex-shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                      onClick={() => removeParam(ci, pi)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  )}
                 </div>
               ))}
-              <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-primary hover:text-primary hover:bg-primary/10"
+              <Button type="button" variant="ghost" size="sm" className="gap-1.5 text-primary hover:text-primary hover:bg-primary/10 text-xs"
                 onClick={() => addParam(ci)}>
                 <Plus className="w-3.5 h-3.5" /> Ajouter un paramètre
               </Button>
@@ -168,9 +170,9 @@ export default function NewCompagnePage() {
         </button>
 
         {/* Form actions */}
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>Annuler</Button>
-          <Button type="submit" disabled={saving} className="flex-1 shadow-lg shadow-primary/20">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+          <Button type="button" variant="outline" className="flex-1 h-10" onClick={() => router.back()}>Annuler</Button>
+          <Button type="submit" disabled={saving} className="flex-1 shadow-lg shadow-primary/20 h-10">
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             {saving ? 'Création...' : 'Créer la compagnie'}
           </Button>

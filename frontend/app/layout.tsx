@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
@@ -6,9 +6,15 @@ import { ThemeProvider } from '@/context/ThemeContext';
 
 const inter = Inter({ subsets: ['latin'] });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+};
+
 export const metadata: Metadata = {
-  title: 'InsurFlow',
-  description: 'Système de gestion des assurances',
+  title: 'InsurFlow — Gestion des Assurances',
+  description: 'Système professionnel de gestion de courtage et d\'assurances',
 };
 
 // Script exécuté AVANT le premier paint pour éviter le flash de mauvais thème (FOUC).

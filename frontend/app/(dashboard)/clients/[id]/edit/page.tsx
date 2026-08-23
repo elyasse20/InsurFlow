@@ -25,7 +25,7 @@ function FieldRow({ label, id, value, onChange, required = false, type = 'text',
       <Label htmlFor={id}>{label}{required && <span className="text-destructive ml-1">*</span>}</Label>
       <Input id={id} type={type} value={value} onChange={onChange} required={required}
         placeholder={placeholder} maxLength={maxLength} pattern={pattern} min={min}
-        className="bg-muted/30 border-border focus:border-primary" />
+        className="bg-muted/30 border-border focus:border-primary w-full" />
     </div>
   );
 }
@@ -145,20 +145,20 @@ export default function EditClientPage() {
   );
 
   return (
-    <div className="max-w-2xl mx-auto w-full space-y-8">
+    <div className="max-w-2xl mx-auto w-full space-y-6 sm:space-y-8">
       {/* Header — Modifier le client */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => router.back()}>
+        <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => router.back()}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
         <div className="space-y-1">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
               <User className="w-4 h-4 text-primary" />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">Modifier le client</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Modifier le client</h1>
           </div>
-          <p className="text-sm text-muted-foreground pl-10">Mettre à jour les informations du client</p>
+          <p className="text-xs sm:text-sm text-muted-foreground pl-10">Mettre à jour les informations du client</p>
         </div>
       </div>
 
@@ -195,11 +195,11 @@ export default function EditClientPage() {
         {type === 'particulier' && (
           <div className="space-y-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Identité & Coordonnées</p>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               <FieldRow label="Nom" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Nom" />
               <FieldRow label="Prénom" id="prenom" value={form.prenom} onChange={set('prenom')} required placeholder="Prénom" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 6XX XXX XXX" />
               <FieldRow label="CIN" id="cin" value={form.cin} onChange={set('cin')} required placeholder="A123456" />
             </div>
@@ -212,11 +212,11 @@ export default function EditClientPage() {
           <div className="space-y-4">
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Raison Sociale & Informations Légales</p>
             <FieldRow label="Nom de la Société" id="nom" value={form.nom} onChange={set('nom')} required placeholder="Raison sociale / Nom société" />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               <FieldRow label="Téléphone" id="tel" value={form.tel} onChange={set('tel')} required placeholder="+212 5XX XXX XXX" />
               <FieldRow label="RC (Registre commerce)" id="rc" value={form.rc} onChange={set('rc')} required placeholder="RC N°" />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
               <FieldRow label="ICE (15 chiffres)" id="ice" value={form.ice} onChange={set('ice')} required maxLength={15} pattern="^\d{15}$" placeholder="000000000000000" />
               <FieldRow label="Identifiant Fiscal (IF)" id="if" value={form.identifiantFiscal} onChange={set('identifiantFiscal')} required placeholder="IF N°" />
             </div>
@@ -228,7 +228,7 @@ export default function EditClientPage() {
 
         <div className="space-y-4">
           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Situation financière</p>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 sm:gap-4">
             <FieldRow label="Budget (DH)" id="budget" type="number" min="0" value={form.budget} onChange={set('budget')} />
             <FieldRow label="Crédit (DH)" id="credit" type="number" min="0" value={form.credit} onChange={set('credit')} />
           </div>
@@ -309,9 +309,9 @@ export default function EditClientPage() {
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3 pt-2">
-          <Button type="button" variant="outline" className="flex-1" onClick={() => router.back()}>Annuler</Button>
-          <Button type="submit" disabled={saving} className="flex-1 shadow-lg shadow-primary/20">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+          <Button type="button" variant="outline" className="flex-1 h-10" onClick={() => router.back()}>Annuler</Button>
+          <Button type="submit" disabled={saving} className="flex-1 shadow-lg shadow-primary/20 h-10">
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
             {saving ? 'Enregistrement...' : 'Sauvegarder'}
           </Button>
