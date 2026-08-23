@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { User, Building2, Upload, Loader2, AlertCircle, X, FileCheck, Sparkles, CheckCircle2, Scan } from 'lucide-react';
+import { User, Building2, Upload, Loader2, AlertCircle, X, FileCheck } from 'lucide-react';
 import api from '@/lib/api';
 import { Client } from '@/types';
 import { cn } from '@/lib/utils';
@@ -25,17 +25,6 @@ interface ClientSheetProps {
   onCreated: (client: Client) => void;
 }
 
-interface CinScanResponse {
-  cin?: string;
-  nom?: string;
-  prenom?: string;
-  adresse?: string;
-  dateNaissance?: string;
-  /** Card expiry date returned by the backend (Valable jusqu'au) */
-  expiry?: string;
-  confidence?: number;
-}
-
 const initialForm = {
   nom: '', prenom: '', cin: '', tel: '', adresse: '',
   ice: '', identifiantFiscal: '', rc: '',
@@ -47,16 +36,9 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
   const [file, setFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [scanningCin, setScanningCin] = useState(false);
-  const [ocrNotice, setOcrNotice] = useState('');
   const [error, setError] = useState('');
   const [form, setForm] = useState(initialForm);
-  // Recto / Verso scan state
-  const [rectoFile, setRectoFile] = useState<File | null>(null);
-  const [versoFile, setVersoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const rectoScanRef = useRef<HTMLInputElement>(null);
-  const versoScanRef = useRef<HTMLInputElement>(null);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }));
@@ -64,119 +46,16 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
   const resetForm = () => {
     setForm(initialForm);
     setFile(null);
-    setRectoFile(null);
-    setVersoFile(null);
     setIsDragging(false);
     setError('');
-    setOcrNotice('');
     setType('particulier');
     setSaving(false);
-    setScanningCin(false);
-    if (fileInputRef.current)  fileInputRef.current.value  = '';
-    if (rectoScanRef.current)  rectoScanRef.current.value  = '';
-    if (versoScanRef.current)  versoScanRef.current.value  = '';
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const handleOpenChange = (v: boolean) => {
     if (!v) resetForm();
     onOpenChange(v);
-  };
-
-  // ── AI CIN Scan handler ────────────────────────────────────────────────────
-  /**
-   * Sends recto (required) + optional verso to /api/clients/scan-cin and maps
-   * the response fields into the form.  Both images are sent together so the
-   * backend can merge fields from both sides in a single round-trip.
-   */
-  const handleCinScan = async (recto: File, verso: File | null) => {
-    setScanningCin(true);
-    setOcrNotice('');
-    setError('');
-    try {
-      const fd = new FormData();
-      fd.append('file', recto);
-      if (verso) fd.append('versoFile', verso);
-
-      const res = await api.post<CinScanResponse>('/clients/scan-cin', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
-
-      console.log('OCR Server Response:', res.data);
-      const data = res.data;
-
-      if (data) {
-        setType('particulier');
-
-        setForm(prev => {
-          const next = { ...prev };
-          const nom    = (data.nom           ?? '').trim();
-          const prenom = (data.prenom        ?? '').trim();
-          const cin    = (data.cin           ?? '').trim();
-          const adrs   = (data.adresse       ?? '').trim();
-          const dob    = (data.dateNaissance ?? '').trim();
-
-          if (nom)    next.nom     = nom;
-          if (prenom) next.prenom  = prenom;
-          if (cin)    next.cin     = cin;
-          if (adrs)   next.adresse = adrs;
-          if (dob)    console.log('OCR dateNaissance:', dob);
-          if (data.expiry) console.log('OCR expiry (Valable jusqu\'au):', data.expiry);
-
-          console.log('Form state after OCR mapping:', next);
-          return next;
-        });
-
-        // Use recto as the document attachment
-        setFile(recto);
-
-        const nothingExtracted =
-          !(data.nom           ?? '').trim() &&
-          !(data.prenom        ?? '').trim() &&
-          !(data.cin           ?? '').trim() &&
-          !(data.adresse       ?? '').trim() &&
-          !(data.dateNaissance ?? '').trim() &&
-          !(data.expiry        ?? '').trim();
-
-        if (nothingExtracted) {
-          setError("Impossible d'extraire les données de la carte CIN. Vous pouvez saisir les informations manuellement.");
-        } else {
-          const extracted = [
-            data.prenom        && `Prénom: ${data.prenom}`,
-            data.nom           && `Nom: ${data.nom}`,
-            data.cin           && `CIN: ${data.cin}`,
-            data.adresse       && `Adresse: ${data.adresse}`,
-            data.dateNaissance && `Né(e) le: ${data.dateNaissance}`,
-            data.expiry        && `Valable jusqu'au: ${data.expiry}`,
-          ].filter(Boolean).join(' • ');
-          const pct = Math.round(((data.confidence ?? 0) > 0 ? data.confidence! : 0.90) * 100);
-          setOcrNotice(`✓ Confiance ${pct}% — ${extracted}. Veuillez vérifier avant d'enregistrer.`);
-        }
-      }
-    } catch (err: any) {
-      console.error('OCR scan failed:', err);
-      console.error('OCR response data:', err?.response?.data);
-      setError("Impossible d'extraire les données de la carte CIN. Vous pouvez saisir les informations manuellement.");
-    } finally {
-      setScanningCin(false);
-    }
-  };
-
-  /** Called when user picks the Recto image — immediately triggers scan. */
-  const handleRectoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setRectoFile(f);
-    // Trigger scan immediately with whatever verso we already have
-    handleCinScan(f, versoFile);
-  };
-
-  /** Called when user picks the Verso image — re-scans if recto is already selected. */
-  const handleVersoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    setVersoFile(f);
-    // Re-scan only if recto is already loaded
-    if (rectoFile) handleCinScan(rectoFile, f);
   };
 
   const processFile = (selected: File) => {
@@ -205,8 +84,6 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
     }
     processFile(selected);
   };
-
-  // (legacy handler removed — replaced by handleRectoChange / handleVersoChange above)
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -294,7 +171,7 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
             <div>
               <SheetTitle>Nouveau client</SheetTitle>
               <SheetDescription>
-                Remplissez les informations ou scannez une carte CIN par l'IA
+                Remplissez les informations pour créer un nouveau client
               </SheetDescription>
             </div>
           </div>
@@ -310,79 +187,6 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
                 <span>{error}</span>
               </div>
             )}
-
-            {/* OCR Success Notice */}
-            {ocrNotice && (
-              <div className="flex items-start gap-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl px-4 py-3 text-xs animate-in fade-in duration-200">
-                <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0 text-emerald-400" />
-                <span>{ocrNotice}</span>
-              </div>
-            )}
-
-            {/* AI CIN Scanner Box — Recto + Verso */}
-            <div className="p-4 rounded-2xl border border-primary/30 bg-primary/5 space-y-3">
-              {/* Header */}
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-primary/20 rounded-lg text-primary">
-                  <Sparkles className="w-4 h-4" />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-foreground">Scanner CIN / Permis (IA)</h4>
-                  <p className="text-[11px] text-muted-foreground">Remplissage automatique — importez le Recto (obligatoire) et le Verso (optionnel)</p>
-                </div>
-              </div>
-
-              {/* Hidden file inputs */}
-              <input ref={rectoScanRef} id="cin-recto-file" name="cin-recto-file"
-                type="file" accept="image/*,.pdf" aria-label="CIN Recto"
-                className="hidden" onChange={handleRectoChange} />
-              <input ref={versoScanRef} id="cin-verso-file" name="cin-verso-file"
-                type="file" accept="image/*,.pdf" aria-label="CIN Verso"
-                className="hidden" onChange={handleVersoChange} />
-
-              {/* Two buttons: Recto / Verso */}
-              <div className="grid grid-cols-2 gap-2">
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={rectoFile ? 'default' : 'outline'}
-                  onClick={() => rectoScanRef.current?.click()}
-                  disabled={scanningCin}
-                  className="gap-1.5 text-xs"
-                >
-                  {scanningCin && rectoFile && !versoFile ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Scan className="w-3.5 h-3.5" />
-                  )}
-                  {rectoFile ? '✓ Recto' : 'Recto (face)'}
-                </Button>
-
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={versoFile ? 'default' : 'outline'}
-                  onClick={() => versoScanRef.current?.click()}
-                  disabled={scanningCin || !rectoFile}
-                  title={!rectoFile ? 'Importez le Recto en premier' : 'Importer le Verso'}
-                  className="gap-1.5 text-xs"
-                >
-                  {scanningCin && versoFile ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : (
-                    <Scan className="w-3.5 h-3.5" />
-                  )}
-                  {versoFile ? '✓ Verso' : 'Verso (dos)'}
-                </Button>
-              </div>
-
-              {/* Scanning spinner overlay text */}
-              {scanningCin && (
-                <p className="text-[11px] text-primary/80 text-center animate-pulse">
-                  Analyse OCR en cours...
-                </p>
-              )}
-            </div>
 
             {/* Type selector */}
             <div className="space-y-2">
@@ -557,14 +361,14 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
               variant="outline"
               onClick={() => handleOpenChange(false)}
               className="flex-1"
-              disabled={saving || scanningCin}
+              disabled={saving}
             >
               Annuler
             </Button>
             <Button
               type="submit"
               className="flex-1 shadow-lg shadow-primary/20"
-              disabled={saving || scanningCin}
+              disabled={saving}
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               {saving ? 'Création...' : 'Créer le client'}

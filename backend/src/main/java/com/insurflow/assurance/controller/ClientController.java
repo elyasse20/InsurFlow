@@ -1,9 +1,7 @@
 package com.insurflow.assurance.controller;
 
-import com.insurflow.assurance.dto.CinScanResultDto;
 import com.insurflow.assurance.dto.ClientRequest;
 import com.insurflow.assurance.model.Client;
-import com.insurflow.assurance.service.CinOcrService;
 import com.insurflow.assurance.service.ClientService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,33 +26,6 @@ import java.util.Map;
 public class ClientController {
 
     private final ClientService clientService;
-    private final CinOcrService cinOcrService;
-
-    /**
-     * POST /api/clients/scan-cin — AI OCR scanner for Moroccan CIN cards.
-     *
-     * Accepts:
-     *   - {@code file}      (required) — recto image / PDF
-     *   - {@code versoFile} (optional) — verso image; if supplied, both sides are
-     *                        OCR'd and the results are merged (recto fields take priority).
-     *
-     * Always returns HTTP 200 with a valid {@link CinScanResultDto}; never 500.
-     */
-    @PostMapping(value = "/scan-cin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<CinScanResultDto> scanCin(
-            @RequestParam("file")                              MultipartFile file,
-            @RequestParam(value = "versoFile", required = false) MultipartFile versoFile) {
-        try {
-            return ResponseEntity.ok(cinOcrService.scanCinDocuments(file, versoFile));
-        } catch (Throwable t) {
-            log.error("Unexpected error in /api/clients/scan-cin: {}", t.getMessage(), t);
-            return ResponseEntity.ok(CinScanResultDto.builder()
-                    .cin("").nom("").prenom("")
-                    .adresse("").dateNaissance("").expiry("")
-                    .confidence(0.0)
-                    .build());
-        }
-    }
 
     /** GET /api/clients?nom= — equivalent of getClients */
     @GetMapping
