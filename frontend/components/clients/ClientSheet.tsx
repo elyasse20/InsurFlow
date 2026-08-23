@@ -31,6 +31,8 @@ interface CinScanResponse {
   prenom?: string;
   adresse?: string;
   dateNaissance?: string;
+  /** Card expiry date returned by the backend (Valable jusqu'au) */
+  expiry?: string;
   confidence?: number;
 }
 
@@ -49,8 +51,12 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
   const [ocrNotice, setOcrNotice] = useState('');
   const [error, setError] = useState('');
   const [form, setForm] = useState(initialForm);
+  // Recto / Verso scan state
+  const [rectoFile, setRectoFile] = useState<File | null>(null);
+  const [versoFile, setVersoFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cinScanInputRef = useRef<HTMLInputElement>(null);
+  const rectoScanRef = useRef<HTMLInputElement>(null);
+  const versoScanRef = useRef<HTMLInputElement>(null);
 
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }));
@@ -58,14 +64,17 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
   const resetForm = () => {
     setForm(initialForm);
     setFile(null);
+    setRectoFile(null);
+    setVersoFile(null);
     setIsDragging(false);
     setError('');
     setOcrNotice('');
     setType('particulier');
     setSaving(false);
     setScanningCin(false);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-    if (cinScanInputRef.current) cinScanInputRef.current.value = '';
+    if (fileInputRef.current)  fileInputRef.current.value  = '';
+    if (rectoScanRef.current)  rectoScanRef.current.value  = '';
+    if (versoScanRef.current)  versoScanRef.current.value  = '';
   };
 
   const handleOpenChange = (v: boolean) => {
@@ -73,83 +82,101 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
     onOpenChange(v);
   };
 
-  // AI CIN Scan handler
-  const handleCinScanFile = async (selectedFile: File) => {
+  // ── AI CIN Scan handler ────────────────────────────────────────────────────
+  /**
+   * Sends recto (required) + optional verso to /api/clients/scan-cin and maps
+   * the response fields into the form.  Both images are sent together so the
+   * backend can merge fields from both sides in a single round-trip.
+   */
+  const handleCinScan = async (recto: File, verso: File | null) => {
     setScanningCin(true);
     setOcrNotice('');
     setError('');
     try {
       const fd = new FormData();
-      fd.append('file', selectedFile);
+      fd.append('file', recto);
+      if (verso) fd.append('versoFile', verso);
 
       const res = await api.post<CinScanResponse>('/clients/scan-cin', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // Debug: log the full server OCR response
       console.log('OCR Server Response:', res.data);
-
       const data = res.data;
+
       if (data) {
-        // Always switch to particulier so identity fields are visible
         setType('particulier');
 
-        // Explicitly map all extracted fields — use empty string as safe fallback
         setForm(prev => {
           const next = { ...prev };
+          const nom    = (data.nom           ?? '').trim();
+          const prenom = (data.prenom        ?? '').trim();
+          const cin    = (data.cin           ?? '').trim();
+          const adrs   = (data.adresse       ?? '').trim();
+          const dob    = (data.dateNaissance ?? '').trim();
 
-          const nom    = (data.nom            ?? '').trim();
-          const prenom = (data.prenom         ?? '').trim();
-          const cin    = (data.cin            ?? '').trim();
-          const adrs   = (data.adresse        ?? '').trim();
-          const dob    = (data.dateNaissance  ?? '').trim();
-
-          if (nom)    next.nom    = nom;
-          if (prenom) next.prenom = prenom;
-          if (cin)    next.cin    = cin;
+          if (nom)    next.nom     = nom;
+          if (prenom) next.prenom  = prenom;
+          if (cin)    next.cin     = cin;
           if (adrs)   next.adresse = adrs;
-          // dateNaissance is not a form field but log it for traceability
-          if (dob) console.log('OCR dateNaissance:', dob);
+          if (dob)    console.log('OCR dateNaissance:', dob);
+          if (data.expiry) console.log('OCR expiry (Valable jusqu\'au):', data.expiry);
 
           console.log('Form state after OCR mapping:', next);
           return next;
         });
 
-        // Store scan file as client document
-        setFile(selectedFile);
+        // Use recto as the document attachment
+        setFile(recto);
 
-        // Show error ONLY when every single extracted field is empty
         const nothingExtracted =
-          !(data.nom            ?? '').trim() &&
-          !(data.prenom         ?? '').trim() &&
-          !(data.cin            ?? '').trim() &&
-          !(data.adresse        ?? '').trim() &&
-          !(data.dateNaissance  ?? '').trim();
+          !(data.nom           ?? '').trim() &&
+          !(data.prenom        ?? '').trim() &&
+          !(data.cin           ?? '').trim() &&
+          !(data.adresse       ?? '').trim() &&
+          !(data.dateNaissance ?? '').trim() &&
+          !(data.expiry        ?? '').trim();
 
         if (nothingExtracted) {
           setError("Impossible d'extraire les données de la carte CIN. Vous pouvez saisir les informations manuellement.");
         } else {
-          const extractedFields = [
-            data.nom && 'Nom',
-            data.prenom && 'Prénom',
-            data.cin && 'CIN',
-            data.adresse && 'Adresse',
-            data.dateNaissance && 'Date de naissance',
-          ].filter(Boolean).join(', ');
-          const confidencePct = Math.round(((data.confidence ?? 0) > 0 ? data.confidence! : 0.90) * 100);
-          setOcrNotice(
-            `Données pré-remplies par l'IA (${extractedFields}) — Confiance: ${confidencePct}%. ` +
-            `Veuillez vérifier les informations avant d'enregistrer.`
-          );
+          const extracted = [
+            data.prenom        && `Prénom: ${data.prenom}`,
+            data.nom           && `Nom: ${data.nom}`,
+            data.cin           && `CIN: ${data.cin}`,
+            data.adresse       && `Adresse: ${data.adresse}`,
+            data.dateNaissance && `Né(e) le: ${data.dateNaissance}`,
+            data.expiry        && `Valable jusqu'au: ${data.expiry}`,
+          ].filter(Boolean).join(' • ');
+          const pct = Math.round(((data.confidence ?? 0) > 0 ? data.confidence! : 0.90) * 100);
+          setOcrNotice(`✓ Confiance ${pct}% — ${extracted}. Veuillez vérifier avant d'enregistrer.`);
         }
       }
     } catch (err: any) {
-      console.error('OCR scan failed — raw error:', err);
-      console.error('OCR scan response data:', err?.response?.data);
+      console.error('OCR scan failed:', err);
+      console.error('OCR response data:', err?.response?.data);
       setError("Impossible d'extraire les données de la carte CIN. Vous pouvez saisir les informations manuellement.");
     } finally {
       setScanningCin(false);
     }
+  };
+
+  /** Called when user picks the Recto image — immediately triggers scan. */
+  const handleRectoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setRectoFile(f);
+    // Trigger scan immediately with whatever verso we already have
+    handleCinScan(f, versoFile);
+  };
+
+  /** Called when user picks the Verso image — re-scans if recto is already selected. */
+  const handleVersoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setVersoFile(f);
+    // Re-scan only if recto is already loaded
+    if (rectoFile) handleCinScan(rectoFile, f);
   };
 
   const processFile = (selected: File) => {
@@ -179,12 +206,7 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
     processFile(selected);
   };
 
-  const handleCinScanInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (selected) {
-      handleCinScanFile(selected);
-    }
-  };
+  // (legacy handler removed — replaced by handleRectoChange / handleVersoChange above)
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -297,50 +319,69 @@ export function ClientSheet({ open, onOpenChange, onCreated }: ClientSheetProps)
               </div>
             )}
 
-            {/* AI CIN Scanner Box */}
+            {/* AI CIN Scanner Box — Recto + Verso */}
             <div className="p-4 rounded-2xl border border-primary/30 bg-primary/5 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="p-1.5 bg-primary/20 rounded-lg text-primary">
-                    <Sparkles className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-foreground">Scanner CIN / Permis (IA)</h4>
-                    <p className="text-[11px] text-muted-foreground">Remplissage automatique via reconnaissance OCR</p>
-                  </div>
+              {/* Header */}
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 bg-primary/20 rounded-lg text-primary">
+                  <Sparkles className="w-4 h-4" />
                 </div>
+                <div>
+                  <h4 className="text-xs font-bold text-foreground">Scanner CIN / Permis (IA)</h4>
+                  <p className="text-[11px] text-muted-foreground">Remplissage automatique — importez le Recto (obligatoire) et le Verso (optionnel)</p>
+                </div>
+              </div>
 
-                <input
-                  ref={cinScanInputRef}
-                  id="cin-scan-file"
-                  name="cin-scan-file"
-                  type="file"
-                  accept="image/*,.pdf"
-                  aria-label="Scanner une carte CIN ou permis"
-                  className="hidden"
-                  onChange={handleCinScanInputChange}
-                />
+              {/* Hidden file inputs */}
+              <input ref={rectoScanRef} id="cin-recto-file" name="cin-recto-file"
+                type="file" accept="image/*,.pdf" aria-label="CIN Recto"
+                className="hidden" onChange={handleRectoChange} />
+              <input ref={versoScanRef} id="cin-verso-file" name="cin-verso-file"
+                type="file" accept="image/*,.pdf" aria-label="CIN Verso"
+                className="hidden" onChange={handleVersoChange} />
+
+              {/* Two buttons: Recto / Verso */}
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={rectoFile ? 'default' : 'outline'}
+                  onClick={() => rectoScanRef.current?.click()}
+                  disabled={scanningCin}
+                  className="gap-1.5 text-xs"
+                >
+                  {scanningCin && rectoFile && !versoFile ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Scan className="w-3.5 h-3.5" />
+                  )}
+                  {rectoFile ? '✓ Recto' : 'Recto (face)'}
+                </Button>
 
                 <Button
                   type="button"
                   size="sm"
-                  onClick={() => cinScanInputRef.current?.click()}
-                  disabled={scanningCin}
-                  className="gap-2 text-xs shadow-md shadow-primary/20"
+                  variant={versoFile ? 'default' : 'outline'}
+                  onClick={() => versoScanRef.current?.click()}
+                  disabled={scanningCin || !rectoFile}
+                  title={!rectoFile ? 'Importez le Recto en premier' : 'Importer le Verso'}
+                  className="gap-1.5 text-xs"
                 >
-                  {scanningCin ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Analyse par l'IA...
-                    </>
+                  {scanningCin && versoFile ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <>
-                      <Scan className="w-3.5 h-3.5" />
-                      Scanner CIN
-                    </>
+                    <Scan className="w-3.5 h-3.5" />
                   )}
+                  {versoFile ? '✓ Verso' : 'Verso (dos)'}
                 </Button>
               </div>
+
+              {/* Scanning spinner overlay text */}
+              {scanningCin && (
+                <p className="text-[11px] text-primary/80 text-center animate-pulse">
+                  Analyse OCR en cours...
+                </p>
+              )}
             </div>
 
             {/* Type selector */}

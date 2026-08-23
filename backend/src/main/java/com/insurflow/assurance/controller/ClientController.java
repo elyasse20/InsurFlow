@@ -31,20 +31,26 @@ public class ClientController {
     private final CinOcrService cinOcrService;
 
     /**
-     * POST /api/clients/scan-cin — AI OCR document scanner for Moroccan CIN / Permis cards.
+     * POST /api/clients/scan-cin — AI OCR scanner for Moroccan CIN cards.
+     *
+     * Accepts:
+     *   - {@code file}      (required) — recto image / PDF
+     *   - {@code versoFile} (optional) — verso image; if supplied, both sides are
+     *                        OCR'd and the results are merged (recto fields take priority).
+     *
+     * Always returns HTTP 200 with a valid {@link CinScanResultDto}; never 500.
      */
     @PostMapping(value = "/scan-cin", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<CinScanResultDto> scanCin(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<CinScanResultDto> scanCin(
+            @RequestParam("file")                              MultipartFile file,
+            @RequestParam(value = "versoFile", required = false) MultipartFile versoFile) {
         try {
-            return ResponseEntity.ok(cinOcrService.scanCinDocument(file));
+            return ResponseEntity.ok(cinOcrService.scanCinDocuments(file, versoFile));
         } catch (Throwable t) {
-            log.error("Unexpected error handling /api/clients/scan-cin: {}", t.getMessage(), t);
+            log.error("Unexpected error in /api/clients/scan-cin: {}", t.getMessage(), t);
             return ResponseEntity.ok(CinScanResultDto.builder()
-                    .cin("")
-                    .nom("")
-                    .prenom("")
-                    .adresse("")
-                    .dateNaissance("")
+                    .cin("").nom("").prenom("")
+                    .adresse("").dateNaissance("").expiry("")
                     .confidence(0.0)
                     .build());
         }

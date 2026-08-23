@@ -25,11 +25,14 @@ import java.util.stream.Collectors;
  * Key design decisions:
  *  - No AWT image processing (causes hangs on Alpine Linux / headless JVMs).
  *  - Hard 10-second CLI timeout with destroyForcibly() on breach.
- *  - All code paths catch Throwable and return HTTP 200 with a valid DTO.
- *  - Name extraction is driven by a leading-caps-word scan that matches the
- *    real Moroccan CIN layout: one line with 2-4 ALL-CAPS name words followed
- *    by noise digits/symbols.
- *  - Address extraction searches for known Moroccan city names inside noisy lines.
+ *  - All code paths catch Throwable — never throws, always returns HTTP 200.
+ *  - Supports dual-image scan (recto + verso): both images are OCR'd and merged.
+ *
+ * Moroccan CIN Recto field order (top → bottom):
+ *   Line 1: Prénom (First Name)  — e.g. ELYASSE
+ *   Line 2: Nom (Family Name)    — e.g. EL HATTAB ELIBRAHIMI
+ *   CIN number printed under the photo, bottom-right corner.
+ *   Birth date follows "Né le" label; expiry follows "Valable jusqu'au".
  */
 @Service
 @Slf4j
@@ -38,63 +41,62 @@ public class CinOcrService {
     @Value("${tesseract.datapath:}")
     private String tessDataPath;
 
-    /** Hard wall-clock limit per Tesseract process. */
     private static final int OCR_TIMEOUT_SECONDS = 10;
 
-    // ── Regex patterns ────────────────────────────────────────────────────────
-
-    /** Moroccan CIN: 1-2 uppercase letters + 5-7 digits, no surrounding alphanumerics. */
+    // ── CIN regex ─────────────────────────────────────────────────────────────
+    // Matches 1-2 uppercase letters + 4-7 digits anywhere in text (loose, no \b
+    // dependency so it works even when surrounding chars are noise).
+    // Applied on the alphanumeric-stripped version of each line for maximum coverage.
     private static final Pattern CIN_PATTERN =
-            Pattern.compile("\\b([A-Z]{1,2})([0-9]{5,7})\\b");
+            Pattern.compile("(?<![A-Z0-9])([A-Z]{1,2})[\\s.]?([0-9]{4,7})(?![0-9])",
+                    Pattern.CASE_INSENSITIVE);
 
-    /** Labeled NOM field — tolerates OCR typos (N0M, NOM., NOM: …). */
+    // ── Date patterns ─────────────────────────────────────────────────────────
+    // Standard date: DD.MM.YYYY or DD-MM-YYYY or DD/MM/YYYY
+    private static final Pattern DATE_PATTERN =
+            Pattern.compile("\\b(\\d{2}[.\\-/]\\d{2}[.\\-/]\\d{4})\\b");
+
+    // "Né le" / "Née le" label — birth date follows on same line or next
+    private static final Pattern NEE_LE_PATTERN =
+            Pattern.compile("(?i)n[eé]e?\\s+le\\s+(\\d{2}[.\\-/]\\d{2}[.\\-/]\\d{4})");
+
+    // "Valable jusqu'au" / "Valable" — expiry date
+    private static final Pattern VALABLE_PATTERN =
+            Pattern.compile("(?i)valable\\s+(?:jusqu(?:'|')au\\s+)?(\\d{2}[.\\-/]\\d{2}[.\\-/]\\d{4})");
+
+    // ── Label-aware name patterns ─────────────────────────────────────────────
     private static final Pattern NOM_LABEL =
             Pattern.compile(
                 "(?i)N[O0]M\\s*[:\\-.]{0,2}\\s*([A-ZÀ-ÿa-z][A-ZÀ-ÿa-z\\s\\-']{1,39})(?=\\s*\\n|$)");
 
-    /** Labeled PRENOM field — tolerates: PRÉNOM, PR0NOM, PREN0M, PRENOM: … */
     private static final Pattern PRENOM_LABEL =
             Pattern.compile(
                 "(?i)PR[EÉeé][EÉeé]?N[O0o]M\\s*[:\\-.]{0,2}\\s*([A-ZÀ-ÿa-z][A-ZÀ-ÿa-z\\s\\-']{1,39})(?=\\s*\\n|$)");
 
-    /** Date of birth: DD.MM.YYYY / DD-MM-YYYY / DD/MM/YYYY. */
-    private static final Pattern DATE_PATTERN =
-            Pattern.compile("\\b(\\d{2}[.\\-/]\\d{2}[.\\-/]\\d{4})\\b");
-
-    /** Labeled ADRESSE field. */
+    // ── Address label ─────────────────────────────────────────────────────────
     private static final Pattern ADRESSE_LABEL =
             Pattern.compile(
                 "(?i)(?:ADRESSE|R[EÉ]SIDENCE|DEMEURE|ADR)\\s*[:\\-.]{0,2}\\s*" +
                 "([A-ZÀ-ÿa-z0-9][A-ZÀ-ÿa-z0-9\\s,./\\-']{4,79})(?=\\s*\\n|$)");
 
-    // ── Moroccan cities (including common OCR variants) ───────────────────────
-
-    /**
-     * Order matters: more specific / longer variants must appear before shorter
-     * ones so that "SIDIBELYOUT" is matched before a hypothetical "YOUT" substring.
-     * OCR variants (CASABTANCA) are included explicitly.
-     */
+    // ── Moroccan cities ───────────────────────────────────────────────────────
     private static final List<String> MOROCCAN_CITIES = List.of(
             "CASABLANCA", "CASABTANCA",
             "RABAT", "SALE",
             "MARRAKECH", "MARRAKESH",
             "MEKNES",
             "OUJDA", "KENITRA", "TETOUAN", "SAFI",
-            "MOHAMMEDIA",
-            "EL JADIDA",
-            "BENI MELLAL",
+            "MOHAMMEDIA", "EL JADIDA", "BENI MELLAL",
             "NADOR", "SETTAT", "KHOURIBGA", "ERRACHIDIA",
             "GUELMIM", "LAAYOUNE", "DAKHLA",
             "TANGER", "TANGIER",
             "AGADIR",
             "FES", "FEZ",
-            // Districts / prefectures of Casablanca
             "SIDIBELYOUT", "SIDI BELYOUT", "SIDI BEL YOUT",
             "AIN SEBAA", "AIN CHOCK", "HAY HASSANI",
             "DERB SULTAN", "MAARIF", "ANFA"
     );
 
-    /** Normalised display names for common OCR-mangled city strings. */
     private static final Map<String, String> CITY_DISPLAY = Map.of(
             "CASABTANCA",    "Casablanca",
             "SIDIBELYOUT",   "Sidi Belyout",
@@ -104,16 +106,14 @@ public class CinOcrService {
             "FEZ",           "Fès"
     );
 
-    // ── Name particles (for nom / prénom split logic) ─────────────────────────
-
+    // ── Name particles ────────────────────────────────────────────────────────
     private static final Set<String> NAME_PARTICLES = Set.of(
             "EL", "AL", "BEN", "BENT", "BENI", "AIT",
             "OUM", "LALLA", "SI", "SIDI", "ABD", "ABDE",
             "ABOU", "OU", "ABI", "BNOU", "IBNOU"
     );
 
-    // ── Noise-rejection lists ─────────────────────────────────────────────────
-
+    // ── Noise rejection ───────────────────────────────────────────────────────
     private static final Set<String> NOISE_EXACT = Set.of(
             "ROYAUME DU MAROC", "ROYAUME", "DU MAROC", "MAROC", "MOROCCO",
             "CARTE NATIONALE D IDENTITE", "CARTE NATIONALE",
@@ -123,52 +123,98 @@ public class CinOcrService {
             "NOM", "PRENOM", "PRÉNOM", "NOM ET PRENOM",
             "SEXE", "SEX", "M", "F",
             "DATE DE NAISSANCE", "DATE NAISSANCE", "DATE OF BIRTH",
+            "NEE LE", "NE LE", "NÉ LE", "NÉE LE",
             "LIEU DE NAISSANCE", "LIEU NAISSANCE",
             "VALABLE JUSQU", "VALABLE", "VALIDE", "EXPIRY", "EXPIRATION",
             "SIGNATURE", "CIN", "ADRESSE", "RESIDENCE", "DOMICILE",
-            "BE", "AE", "DRE", "EEN"   // frequent short OCR artefacts
+            "BE", "AE", "DRE", "EEN"
     );
 
     private static final List<String> NOISE_PREFIXES = List.of(
             "ROYAUME", "CARTE", "NATIONAL", "IDENTITY",
             "VALABLE", "EXPIR", "LIEU", "DATE", "SIGN",
-            "NOM ", "PRENOM"
+            "NOM ", "PRENOM", "NE LE", "NEE", "NÉ"
     );
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Public entry point — NEVER throws, always returns HTTP 200
+    //  Public entry points — NEVER throw, always return HTTP 200
     // ─────────────────────────────────────────────────────────────────────────
 
+    /**
+     * Scan a single CIN image (backward-compatible with the existing controller).
+     */
     public CinScanResultDto scanCinDocument(MultipartFile file) {
+        return scanCinDocuments(file, null);
+    }
+
+    /**
+     * Scan recto + optional verso, merge extracted fields.
+     * Fields found on the recto take priority; verso fills in any gaps.
+     */
+    public CinScanResultDto scanCinDocuments(MultipartFile recto, MultipartFile verso) {
+        CinScanResultDto rectoResult = scanSingle(recto, "recto");
+        if (verso == null || verso.isEmpty()) return rectoResult;
+
+        CinScanResultDto versoResult = scanSingle(verso, "verso");
+        return merge(rectoResult, versoResult);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Internal: scan one image
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private CinScanResultDto scanSingle(MultipartFile file, String label) {
         if (file == null || file.isEmpty()) {
-            log.warn("OCR: null or empty file received.");
+            log.warn("OCR [{}]: null or empty file — skipping.", label);
             return emptyResult();
         }
-        log.info("OCR: scan started — '{}' ({} bytes)",
-                file.getOriginalFilename(), file.getSize());
+        log.info("OCR [{}]: scan started — '{}' ({} bytes)",
+                label, file.getOriginalFilename(), file.getSize());
 
         File tmp = null;
         try {
             tmp = saveToDisk(file);
             String raw = runTesseract(tmp);
-
-            // Always log the full raw Tesseract output for debugging
-            log.info("=== RAW TESSERACT OUTPUT ({} chars) ===\n{}\n=== END ===",
-                    raw.length(), raw);
-
+            log.info("=== RAW OCR [{}] ({} chars) ===\n{}\n=== END [{}] ===",
+                    label, raw.length(), raw, label);
             return parseOcrText(raw);
-
         } catch (Throwable t) {
-            log.error("OCR: unexpected failure — returning empty result. Cause: {}",
-                    t.getMessage(), t);
+            log.error("OCR [{}]: unexpected failure — {}", label, t.getMessage(), t);
             return emptyResult();
         } finally {
             deleteSilently(tmp);
         }
     }
 
+    /**
+     * Merges two scan results: recto fields take priority; verso fills any gaps.
+     * Confidence is recalculated from the merged fields.
+     */
+    private CinScanResultDto merge(CinScanResultDto r, CinScanResultDto v) {
+        String cin           = first(r.getCin(),           v.getCin());
+        String nom           = first(r.getNom(),           v.getNom());
+        String prenom        = first(r.getPrenom(),        v.getPrenom());
+        String adresse       = first(r.getAdresse(),       v.getAdresse());
+        String dateNaissance = first(r.getDateNaissance(), v.getDateNaissance());
+        String expiry        = first(r.getExpiry(),        v.getExpiry());
+
+        double confidence = calculateConfidence(cin, nom, prenom, dateNaissance, adresse);
+        log.info("OCR MERGED → CIN:'{}' Nom:'{}' Prenom:'{}' Date:'{}' Exp:'{}' Addr:'{}' Conf:{}",
+                cin, nom, prenom, dateNaissance, expiry, adresse, confidence);
+
+        return CinScanResultDto.builder()
+                .cin(cin).nom(nom).prenom(prenom)
+                .adresse(adresse).dateNaissance(dateNaissance)
+                .expiry(expiry).confidence(confidence)
+                .build();
+    }
+
+    private static String first(String a, String b) {
+        return (a != null && !a.isBlank()) ? a.trim() : (b != null ? b.trim() : "");
+    }
+
     // ─────────────────────────────────────────────────────────────────────────
-    //  File I/O — raw stream copy, no image processing
+    //  File I/O
     // ─────────────────────────────────────────────────────────────────────────
 
     private File saveToDisk(MultipartFile file) throws IOException {
@@ -178,7 +224,6 @@ public class CinOcrService {
                 : ".jpg";
         File tmp = File.createTempFile("cin_ocr_", ext);
         Files.copy(file.getInputStream(), tmp.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        log.debug("OCR: temp file → {}", tmp.getAbsolutePath());
         return tmp;
     }
 
@@ -198,16 +243,15 @@ public class CinOcrService {
                 log.info("OCR: success with lang='{}'", lang);
                 return result;
             }
-            log.warn("OCR: blank output for lang='{}', trying next.", lang);
+            log.warn("OCR: blank for lang='{}', trying next.", lang);
         }
-        log.error("OCR: all language attempts returned blank output.");
+        log.error("OCR: all language attempts returned blank.");
         return "";
     }
 
     private String execTesseract(File imageFile, String lang) {
         List<String> cmd = buildCommand(imageFile, lang);
         log.info("OCR CMD: {}", String.join(" ", cmd));
-
         Process proc = null;
         try {
             ProcessBuilder pb = new ProcessBuilder(cmd);
@@ -220,7 +264,6 @@ public class CinOcrService {
                 String line;
                 while ((line = r.readLine()) != null) out.append(line).append('\n');
             }
-
             StringBuilder err = new StringBuilder();
             try (BufferedReader r = new BufferedReader(
                     new InputStreamReader(proc.getErrorStream(), StandardCharsets.UTF_8))) {
@@ -230,19 +273,16 @@ public class CinOcrService {
 
             boolean done = proc.waitFor(OCR_TIMEOUT_SECONDS, TimeUnit.SECONDS);
             if (!done) {
-                log.error("OCR: Tesseract timed out after {}s (lang={})", OCR_TIMEOUT_SECONDS, lang);
+                log.error("OCR: timed out after {}s (lang={})", OCR_TIMEOUT_SECONDS, lang);
                 proc.destroyForcibly();
                 return "";
             }
-
             int exit = proc.exitValue();
             if (exit != 0) {
-                log.warn("OCR: Tesseract exit={} lang={} | stderr: {}",
-                        exit, lang, err.toString().trim());
+                log.warn("OCR: exit={} lang={} stderr: {}", exit, lang, err.toString().trim());
                 return "";
             }
             return out.toString();
-
         } catch (Throwable t) {
             log.warn("OCR: Tesseract error lang={}: {}", lang, t.getMessage());
             if (proc != null) proc.destroyForcibly();
@@ -255,9 +295,8 @@ public class CinOcrService {
         cmd.add("tesseract");
         cmd.add(imageFile.getAbsolutePath());
         cmd.add("stdout");
-        cmd.add("--psm"); cmd.add("6");   // uniform text block — best for ID cards
-        cmd.add("--oem"); cmd.add("1");   // LSTM neural engine
-
+        cmd.add("--psm"); cmd.add("6");
+        cmd.add("--oem"); cmd.add("1");
         if (tessDataPath != null && !tessDataPath.isBlank()) {
             File dir = new File(tessDataPath.trim());
             if (dir.exists() && dir.isDirectory()) {
@@ -279,42 +318,75 @@ public class CinOcrService {
             return emptyResult();
         }
 
-        // Normalise: unified line endings, collapse horizontal whitespace
         String text = raw.replace("\r\n", "\n").replace("\r", "\n")
                          .replaceAll("[ \t]+", " ").trim();
         String[] lines = text.split("\n");
 
-        // ── 1. CIN ────────────────────────────────────────────────────────
-        String cin = extractCin(text);
+        // ── 1. CIN (anywhere in document, 3-pass) ─────────────────────────
+        String cin = extractCin(text, lines);
 
-        // ── 2. Date of birth ──────────────────────────────────────────────
-        String dateNaissance = extractFirst(text, DATE_PATTERN);
+        // ── 2. Dates — distinguish birth date vs expiry ────────────────────
+        String dateNaissance = "";
+        String expiry        = "";
 
-        // ── 3. Nom / Prénom — four-tier strategy ──────────────────────────
-        //  Tier 1: explicit NOM / PRENOM label regex
+        // Try labeled patterns first
+        Matcher neeMatcher = NEE_LE_PATTERN.matcher(text);
+        if (neeMatcher.find()) dateNaissance = clean(neeMatcher.group(1));
+
+        Matcher valMatcher = VALABLE_PATTERN.matcher(text);
+        if (valMatcher.find()) expiry = clean(valMatcher.group(1));
+
+        // If only one date found by unlabeled pattern, assign based on value:
+        // earlier date = birth, later date = expiry
+        if (dateNaissance.isEmpty() || expiry.isEmpty()) {
+            List<String> allDates = extractAllDates(text);
+            if (allDates.size() >= 2) {
+                // Sort by date value (YYYY from position [6..10])
+                allDates.sort(Comparator.comparing(d -> d.substring(6)));
+                if (dateNaissance.isEmpty()) dateNaissance = allDates.get(0);
+                if (expiry.isEmpty())        expiry        = allDates.get(allDates.size() - 1);
+            } else if (allDates.size() == 1 && dateNaissance.isEmpty()) {
+                // Single date: treat as birth date only if year looks like a birthyear
+                String year = allDates.get(0).substring(6);
+                int y = Integer.parseInt(year);
+                if (y <= 2010) dateNaissance = allDates.get(0);
+                else           expiry        = allDates.get(0);
+            }
+        }
+
+        // ── 3. Nom / Prénom — correct Moroccan CIN field order ────────────
+        //
+        // On the official Moroccan CIN Recto:
+        //   • Line 1 (directly under headers): PRÉNOM  (first name, often a single word)
+        //   • Line 2 (below):                  NOM     (family name, often 2-3 words)
+        //
+        // Strategy: collect the first two distinct caps-word candidate lines,
+        // then assign: candidates[0] → prénom, candidates[1] → nom.
+
+        // Tier 1: explicit labels
         String nom    = extractByLabel(text, NOM_LABEL);
         String prenom = extractByLabel(text, PRENOM_LABEL);
 
-        //  Tier 2: line-by-line keyword scan (handles label on its own line)
+        // Tier 2: line-by-line keyword scan
         if (nom.isEmpty() || prenom.isEmpty()) {
             String[] r = extractNomPrenomFromLines(lines, nom, prenom);
             if (nom.isEmpty())    nom    = r[0];
             if (prenom.isEmpty()) prenom = r[1];
         }
 
-        //  Tier 3: leading-caps-word detection — PRIMARY for real Moroccan CINs.
-        //  Matches "EL HATTAB EEIBRAHIML 4 7RAS A) = BE" → [EL, HATTAB, EEIBRAHIML]
+        // Tier 3: caps-line scan — respects Moroccan CIN field order
+        // (first caps line = prénom, second caps line = nom)
         if (nom.isEmpty() && prenom.isEmpty()) {
-            String[] r = extractNomPrenomFromCapsLine(lines);
-            nom    = r[0];
-            prenom = r[1];
+            String[] r = extractNomPrenomCapsOrder(lines);
+            prenom = r[0];   // ← first caps candidate = prénom
+            nom    = r[1];   // ← second caps candidate = nom
         }
 
-        //  Tier 4: broad heuristic (last resort)
+        // Tier 4: broad heuristic (last resort)
         if (nom.isEmpty() && prenom.isEmpty()) {
             String[] r = extractNomPrenomHeuristic(lines);
-            nom    = r[0];
-            prenom = r[1];
+            prenom = r[0];
+            nom    = r[1];
         }
 
         // ── 4. Address ────────────────────────────────────────────────────
@@ -329,45 +401,68 @@ public class CinOcrService {
 
         double confidence = calculateConfidence(cin, nom, prenom, dateNaissance, adresse);
 
-        log.info("OCR RESULT → CIN:'{}' Nom:'{}' Prenom:'{}' Date:'{}' Adresse:'{}' Conf:{}",
-                cin, nom, prenom, dateNaissance, adresse, confidence);
+        log.info("OCR RESULT → CIN:'{}' Prenom:'{}' Nom:'{}' DateNaissance:'{}' Expiry:'{}' Addr:'{}' Conf:{}",
+                cin, prenom, nom, dateNaissance, expiry, adresse, confidence);
 
         return CinScanResultDto.builder()
                 .cin(cin).nom(nom).prenom(prenom)
                 .adresse(adresse).dateNaissance(dateNaissance)
-                .confidence(confidence)
+                .expiry(expiry).confidence(confidence)
                 .build();
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  CIN extraction — 3-pass with noise-stripping and OCR corrections
+    //  CIN extraction — 3-pass, line-by-line for bottom-of-card number
     // ─────────────────────────────────────────────────────────────────────────
 
-    private String extractCin(String rawText) {
-        // Pass 1: raw text
-        String found = findCin(rawText);
+    /**
+     * Searches for the CIN number using three passes, scanning all lines so the
+     * number printed under the photo (bottom-right) is not missed.
+     */
+    private String extractCin(String fullText, String[] lines) {
+        // Pass 1: raw full text
+        String found = findCin(fullText);
         if (!found.isEmpty()) return found;
 
-        // Pass 2: collapse punctuation/spaces between letter prefix and digits
-        // e.g. "BK 12.3456" → "BK123456"
-        String stripped = rawText.replaceAll("[^A-Za-z0-9\n]", " ");
-        found = findCin(stripped);
-        if (!found.isEmpty()) return found;
+        // Pass 2: scan each line individually after stripping noise chars
+        for (String raw : lines) {
+            // Strip non-alphanumeric so "BM.44511" → "BM44511"
+            String stripped = raw.replaceAll("[^A-Za-z0-9]", "");
+            found = findCin(stripped);
+            if (!found.isEmpty()) return found;
+        }
 
-        // Pass 3: fix known OCR digit↔letter confusions
-        String corrected = rawText
-                .replaceAll("(?<![0-9])0(?=[A-Z0-9]{5,7}\\b)", "O")
-                .replaceAll("(?i)\\b([lI])([0-9]{5,7})\\b", "I$2");
+        // Pass 3: OCR digit↔letter corrections on full text
+        String corrected = fullText
+                .replaceAll("(?<![0-9])0(?=[A-Z0-9]{4,7}\\b)", "O")
+                .replaceAll("(?i)\\b([lI])([0-9]{4,7})\\b", "I$2");
         return findCin(corrected);
     }
 
     private String findCin(String text) {
         Matcher m = CIN_PATTERN.matcher(text.toUpperCase());
         while (m.find()) {
-            String candidate = m.group(1) + m.group(2);
-            if (candidate.matches("[A-Z]{1,2}[0-9]{5,7}")) return candidate;
+            String letters = m.group(1);
+            String digits  = m.group(2);
+            String candidate = letters + digits;
+            // Validate: 1-2 letters + 4-7 digits
+            if (candidate.matches("[A-Z]{1,2}[0-9]{4,7}")) return candidate;
         }
         return "";
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  Date extraction helpers
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private List<String> extractAllDates(String text) {
+        List<String> dates = new ArrayList<>();
+        Matcher m = DATE_PATTERN.matcher(text);
+        while (m.find()) {
+            String d = clean(m.group(1));
+            if (!dates.contains(d)) dates.add(d);
+        }
+        return dates;
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -375,11 +470,6 @@ public class CinOcrService {
     // ─────────────────────────────────────────────────────────────────────────
 
     private String extractByLabel(String text, Pattern p) {
-        Matcher m = p.matcher(text);
-        return m.find() ? clean(m.group(1)) : "";
-    }
-
-    private String extractFirst(String text, Pattern p) {
         Matcher m = p.matcher(text);
         return m.find() ? clean(m.group(1)) : "";
     }
@@ -401,7 +491,6 @@ public class CinOcrService {
         for (int i = 0; i < lines.length; i++) {
             String line = lines[i].trim();
             if (line.isBlank()) continue;
-
             if (nom.isEmpty()) {
                 Matcher m = nomKey.matcher(line);
                 if (m.matches()) {
@@ -430,50 +519,78 @@ public class CinOcrService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Tier 3: leading-caps-word detection (primary for real Moroccan CINs)
+    //  Tier 3: caps-line scan — respects Moroccan CIN field order
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Scans each line for a leading run of ALL-CAPS alphabetic tokens (≥ 2 chars).
-     * The scan stops immediately at the first token that contains a digit, is too
-     * short, or is not entirely uppercase — this naturally trims the trailing OCR
-     * noise (e.g. "4 7RAS A) = BE") from name lines.
+     * Collects up to two caps-line candidates and assigns them in Moroccan CIN order:
+     * <ul>
+     *   <li>Candidate 0 (first caps line encountered) → <b>Prénom</b></li>
+     *   <li>Candidate 1 (second caps line)            → <b>Nom</b> (may include particle)</li>
+     * </ul>
      *
-     * <p>Real example:
-     * <pre>
-     *   Input:  "EL HATTAB EEIBRAHIML 4 7RAS A) = BE"
-     *   Caps run: [EL, HATTAB, EEIBRAHIML]
-     *   EL is a particle → nom = "EL HATTAB", prenom = "EEIBRAHIML"
-     *   Trailing-L fix  → prenom = "EEIBRAHIMI"
-     * </pre>
+     * <p>A single-word caps line is treated as a prénom (first name).
+     * A multi-word caps line whose first word is a particle (EL, BEN …) is treated as
+     * a family name.  If only one candidate is found, heuristic position decides.
+     *
+     * <p>Trailing-L-to-I OCR correction is applied to whichever field it belongs to.
      */
-    private String[] extractNomPrenomFromCapsLine(String[] lines) {
+    private String[] extractNomPrenomCapsOrder(String[] lines) {
+        List<String> candidates = new ArrayList<>();
+
         for (String raw : lines) {
             List<String> capsWords = extractLeadingCapsWords(raw);
-            if (capsWords.size() < 2) continue;
+            if (capsWords.isEmpty()) continue;
 
-            // Skip lines that look like a noise phrase in their entirety
             String joined = String.join(" ", capsWords);
             if (isNoiseLine(joined)) continue;
 
-            return splitIntoNomPrenom(capsWords);
+            candidates.add(joined);
+            if (candidates.size() == 2) break;
         }
-        return new String[]{"", ""};
+
+        if (candidates.isEmpty()) return new String[]{"", ""};
+
+        if (candidates.size() == 1) {
+            String only = candidates.get(0);
+            String[] words = only.split(" ");
+            // Single word → prénom; multi-word starting with particle → nom
+            if (words.length == 1) return new String[]{only, ""};
+            if (NAME_PARTICLES.contains(words[0])) return new String[]{"", only};
+            return new String[]{words[0],
+                    fixTrailingL(String.join(" ", Arrays.copyOfRange(words, 1, words.length)))};
+        }
+
+        // Two candidates — first = prénom, second = nom
+        String prenomRaw = candidates.get(0);
+        String nomRaw    = candidates.get(1);
+
+        // If first candidate is clearly a family name (starts with particle + has 2+ words),
+        // and second is a single word — swap them
+        String[] prenomWords = prenomRaw.split(" ");
+        String[] nomWords    = nomRaw.split(" ");
+        if (NAME_PARTICLES.contains(prenomWords[0]) && prenomWords.length >= 2
+                && nomWords.length == 1) {
+            String tmp = prenomRaw;
+            prenomRaw  = nomRaw;
+            nomRaw     = tmp;
+        }
+
+        return new String[]{
+                fixTrailingL(prenomRaw),
+                fixTrailingL(nomRaw)
+        };
     }
 
     /**
      * Returns the leading run of ALL-UPPERCASE alphabetic tokens from a line.
-     * Stops at the first token that is not entirely uppercase or is too short.
-     *
-     * <p>Token cleaning: surrounding punctuation / symbols are stripped before
-     * the uppercase check, so "HATTAB)" → "HATTAB" passes, but "4" → "" fails.
+     * Stops at the first token that is not entirely uppercase or is shorter than 2 chars.
+     * Token-level punctuation/symbols are stripped before the uppercase check.
      */
     private List<String> extractLeadingCapsWords(String line) {
         List<String> result = new ArrayList<>();
         for (String token : line.trim().split("\\s+")) {
-            // Remove surrounding non-uppercase-letter characters
             String cleaned = token.replaceAll("^[^A-ZÀ-Ÿ]+|[^A-ZÀ-Ÿ]+$", "");
-            // Must be ≥ 2 chars and composed entirely of uppercase letters
             if (cleaned.length() < 2 || !cleaned.matches("[A-ZÀ-Ÿ]{2,}")) break;
             result.add(cleaned);
         }
@@ -481,43 +598,13 @@ public class CinOcrService {
     }
 
     /**
-     * Splits a consecutive caps-word list into nom / prénom using particle logic:
-     * <ul>
-     *   <li>If the first word is a known particle (EL, BEN, AIT, …) and there are
-     *       ≥ 3 words: nom = first two words, prénom = the rest.</li>
-     *   <li>Two words: nom = first, prénom = second.</li>
-     *   <li>Otherwise: nom = first, prénom = remaining words joined.</li>
-     * </ul>
-     * Applies the trailing-L-to-I OCR correction on the final prénom word.
-     */
-    private String[] splitIntoNomPrenom(List<String> words) {
-        String nom, prenom;
-
-        if (words.size() == 2) {
-            nom    = words.get(0);
-            prenom = words.get(1);
-        } else if (NAME_PARTICLES.contains(words.get(0)) && words.size() >= 3) {
-            nom    = words.get(0) + " " + words.get(1);
-            prenom = String.join(" ", words.subList(2, words.size()));
-        } else {
-            nom    = words.get(0);
-            prenom = String.join(" ", words.subList(1, words.size()));
-        }
-
-        prenom = fixTrailingL(prenom);
-        return new String[]{nom, prenom};
-    }
-
-    /**
-     * Fixes a common OCR artefact where the last letter of a name is misread as 'L'
-     * when it should be 'I'.  Applied only to the last word of the prénom.
-     *
-     * <p>Example: "EEIBRAHIML" → "EEIBRAHIMI"
+     * Fixes trailing 'L' misread as 'I' by Tesseract on the last word of a name.
+     * Example: "EEIBRAHIML" → "EEIBRAHIMI"
      */
     private String fixTrailingL(String value) {
         if (value == null || value.length() < 3) return value == null ? "" : value;
-        int lastSpace = value.lastIndexOf(' ');
-        String prefix   = lastSpace >= 0 ? value.substring(0, lastSpace + 1) : "";
+        int lastSpace  = value.lastIndexOf(' ');
+        String prefix  = lastSpace >= 0 ? value.substring(0, lastSpace + 1) : "";
         String lastWord = lastSpace >= 0 ? value.substring(lastSpace + 1) : value;
 
         if (lastWord.length() >= 2) {
@@ -540,19 +627,16 @@ public class CinOcrService {
             String line = raw.trim();
             if (line.isBlank() || line.length() < 2 || line.length() > 45) continue;
             if (line.matches(".*\\d.*")) continue;
-
-            // Apply OCR digit→letter corrections before alphabetic check
             String corrected = line
                     .replaceAll("(?<=[A-ZÀ-ÿa-z])0(?=[A-ZÀ-ÿa-z])", "O")
                     .replaceAll("(?<=[A-ZÀ-ÿa-z])1(?=[A-ZÀ-ÿa-z])", "I")
                     .replaceAll("(?<=[A-ZÀ-ÿa-z])8(?=[A-ZÀ-ÿa-z])", "B");
-
             if (!corrected.replaceAll("[\\s\\-']", "").matches("[A-ZÀ-Ÿa-zà-ÿ]+")) continue;
             if (isNoiseLine(corrected.toUpperCase().trim())) continue;
-
             candidates.add(corrected.trim());
             if (candidates.size() == 2) break;
         }
+        // Heuristic order also respects CIN layout: first = prénom, second = nom
         return new String[]{
                 candidates.size() > 0 ? candidates.get(0) : "",
                 candidates.size() > 1 ? candidates.get(1) : ""
@@ -560,76 +644,52 @@ public class CinOcrService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  Address extraction — city-based detection
+    //  Address extraction
     // ─────────────────────────────────────────────────────────────────────────
 
-    /**
-     * Searches each line for known Moroccan city names (case-insensitive, tolerates
-     * OCR variants like CASABTANCA → Casablanca, SIDIBELYOUT → Sidi Belyout).
-     *
-     * <p>The line is normalised to uppercase with all non-alpha characters replaced
-     * by spaces before matching, so "sIDiBELYOUT CASABTANCA" is correctly detected.
-     *
-     * <p>Matched cities are returned in their order of appearance on the line,
-     * normalised to display form (e.g. "Sidi Belyout, Casablanca").
-     */
     private String extractAddressByCity(String[] lines) {
         for (String raw : lines) {
-            // Normalise line: uppercase, replace non-alpha with spaces, collapse runs
             String upper = raw.toUpperCase()
                               .replaceAll("[^A-ZÀ-Ÿ\\s]", " ")
-                              .replaceAll("\\s+", " ")
-                              .trim();
-            String paddedUpper = " " + upper + " "; // word-boundary padding
+                              .replaceAll("\\s+", " ").trim();
+            String padded = " " + upper + " ";
 
             List<String> matched = new ArrayList<>();
             for (String city : MOROCCAN_CITIES) {
-                // Check whole-word occurrence (avoids "FES" matching "CAFES")
-                if (paddedUpper.contains(" " + city + " ") && !matched.contains(city)) {
+                if (padded.contains(" " + city + " ") && !matched.contains(city)) {
                     matched.add(city);
                 }
             }
-
             if (!matched.isEmpty()) {
-                // Sort by position of appearance in the line (preserve natural order)
                 matched.sort(Comparator.comparingInt(c -> upper.indexOf(c)));
-
                 String address = matched.stream()
                         .map(this::normalizeCityName)
                         .collect(Collectors.joining(", "));
-
-                log.info("OCR: city-based address detected: '{}'", address);
+                log.info("OCR: city-based address: '{}'", address);
                 return address;
             }
         }
         return "";
     }
 
-    /** Returns the human-readable display form for a city key. */
     private String normalizeCityName(String city) {
         if (CITY_DISPLAY.containsKey(city)) return CITY_DISPLAY.get(city);
-        // Title-case each word
         return Arrays.stream(city.split(" "))
                 .filter(w -> !w.isEmpty())
                 .map(w -> w.charAt(0) + w.substring(1).toLowerCase())
                 .collect(Collectors.joining(" "));
     }
 
-    // ── Address heuristic fallback ────────────────────────────────────────────
-
     private String extractAddressHeuristic(String[] lines) {
-        boolean nextIsAddress = false;
+        boolean next = false;
         for (String raw : lines) {
             String line  = raw.trim();
             String upper = line.toUpperCase();
             if (line.isBlank()) continue;
-
-            if (nextIsAddress && line.length() >= 5) return clean(line);
-
+            if (next && line.length() >= 5) return clean(line);
             if (upper.matches("(?:ADRESSE|R[EÉ]SIDENCE|DEMEURE|ADR)\\s*[:\\-.]{0,2}\\s*")) {
-                nextIsAddress = true;
-            } else if (upper.matches(
-                    "(?:ADRESSE|R[EÉ]SIDENCE|DEMEURE|ADR)\\s*[:\\-.]{0,2}\\s*.+")) {
+                next = true;
+            } else if (upper.matches("(?:ADRESSE|R[EÉ]SIDENCE|DEMEURE|ADR)\\s*[:\\-.]{0,2}\\s*.+")) {
                 return clean(line.replaceFirst(
                         "(?i)(?:ADRESSE|R[EÉ]SIDENCE|DEMEURE|ADR)\\s*[:\\-.]{0,2}\\s*", ""));
             }
@@ -662,11 +722,6 @@ public class CinOcrService {
         return s;
     }
 
-    /**
-     * Calculates OCR confidence from the set of fields successfully extracted.
-     * Returns {@code 0.95} when nom + prénom + (date or address) are all present —
-     * the most meaningful combination for a Moroccan CIN.
-     */
     private double calculateConfidence(String cin, String nom, String prenom,
                                        String dateNaissance, String adresse) {
         boolean hasNom    = !nom.isEmpty();
@@ -685,7 +740,7 @@ public class CinOcrService {
     private CinScanResultDto emptyResult() {
         return CinScanResultDto.builder()
                 .cin("").nom("").prenom("")
-                .adresse("").dateNaissance("")
+                .adresse("").dateNaissance("").expiry("")
                 .confidence(0.0)
                 .build();
     }
