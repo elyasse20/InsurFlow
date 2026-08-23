@@ -13,8 +13,10 @@ import { Production, Compagne, Category } from '@/types';
 import { formatMoisDem, formatAmount } from '@/lib/format';
 import { exportToCSV, exportToPDF, ExportColumn } from '@/lib/export';
 import ExerciceSelector from '@/components/ExerciceSelector';
+import ClaimsAnalyzerModal from '@/components/ai/ClaimsAnalyzerModal';
 
 import { Button } from '@/components/ui/button';
+
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -241,12 +243,14 @@ export default function OperationsPage() {
             <FileDown className="w-3.5 h-3.5 text-red-400" />
             <span className="hidden sm:inline">{exporting ? 'PDF…' : 'PDF'}</span>
           </Button>
+          <ClaimsAnalyzerModal triggerButtonText="Analyser Sinistre IA" />
           <Button onClick={() => router.push('/operations/new')} className="gap-2 shadow-lg shadow-primary/20 h-9">
             <Plus className="w-4 h-4" />
             Nouvelle opération
           </Button>
         </div>
       </div>
+
 
       {/* Filter bar */}
       {showFilters && (
@@ -417,10 +421,20 @@ export default function OperationsPage() {
                           onClick={() => router.push(`/regelements/${prod.id}`)} title="Règlement">
                           <CreditCard className="w-3.5 h-3.5" />
                         </Button>
+                        <ClaimsAnalyzerModal
+                          initialClientName={prod.client}
+                          initialPolicyNumber={prod.numpolice}
+                          initialCategory={prod.category}
+                          triggerButtonVariant="ghost"
+                          triggerButtonSize="icon"
+                          triggerButtonClassName="h-8 w-8 text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
+                          triggerButtonText=""
+                        />
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
                           onClick={() => router.push(`/operations/${prod.id}/edit`)} title="Modifier">
                           <Edit2 className="w-3.5 h-3.5" />
                         </Button>
+
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="Supprimer">

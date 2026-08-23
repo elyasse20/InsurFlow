@@ -1,9 +1,12 @@
 package com.insurflow.assurance.controller;
 
+import com.insurflow.assurance.dto.ClaimAnalysisRequest;
+import com.insurflow.assurance.dto.ClaimAnalysisResponse;
 import com.insurflow.assurance.dto.CopilotChatRequest;
 import com.insurflow.assurance.dto.CopilotChatResponse;
 import com.insurflow.assurance.dto.RiskAssessmentRequest;
 import com.insurflow.assurance.dto.RiskAssessmentResponse;
+import com.insurflow.assurance.service.AiClaimAnalysisService;
 import com.insurflow.assurance.service.AiCopilotService;
 import com.insurflow.assurance.service.AiRiskAssessmentService;
 import lombok.RequiredArgsConstructor;
@@ -19,6 +22,7 @@ public class AiController {
 
     private final AiRiskAssessmentService aiRiskAssessmentService;
     private final AiCopilotService aiCopilotService;
+    private final AiClaimAnalysisService aiClaimAnalysisService;
 
     @PostMapping("/risk-assessment")
     public ResponseEntity<RiskAssessmentResponse> assessRisk(@RequestBody RiskAssessmentRequest request) {
@@ -31,6 +35,14 @@ public class AiController {
     public ResponseEntity<CopilotChatResponse> chat(@RequestBody CopilotChatRequest request) {
         log.info("Received request for AI Copilot chat on page: {}", request.getContextPage());
         CopilotChatResponse response = aiCopilotService.chat(request);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/claims-analyzer")
+    public ResponseEntity<ClaimAnalysisResponse> analyzeClaim(@RequestBody ClaimAnalysisRequest request) {
+        log.info("Received request for AI Claim Analysis: client={}, policy={}",
+                request.getClientName(), request.getPolicyNumber());
+        ClaimAnalysisResponse response = aiClaimAnalysisService.analyzeClaim(request);
         return ResponseEntity.ok(response);
     }
 }

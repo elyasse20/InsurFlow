@@ -25,6 +25,7 @@ import {
   Plus,
   MessageSquare,
   Clock,
+  ShieldAlert,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { CopilotMessage, CopilotSession } from '@/types';
@@ -38,6 +39,11 @@ const INITIAL_PROMPTS = [
     icon: FileText,
     label: 'Polices à renouveler',
     prompt: 'Quelles sont les polices à renouveler ce mois ?',
+  },
+  {
+    icon: ShieldAlert,
+    label: 'Analyse sinistre & fraude',
+    prompt: "Analyse d'une déclaration de sinistre et détection des indicateurs de fraude",
   },
   {
     icon: Mail,
@@ -55,6 +61,7 @@ const INITIAL_PROMPTS = [
     prompt: "Synthèse de l'activité du portefeuille",
   },
 ];
+
 
 const getDefaultWelcomeMessage = (): CopilotMessage => ({
   id: 'init-1',

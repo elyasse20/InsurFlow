@@ -2,7 +2,9 @@
 
 import React from 'react';
 import NotificationBell from '@/components/NotificationBell';
+import ClaimsAnalyzerModal from '@/components/ai/ClaimsAnalyzerModal';
 import { useAuth } from '@/context/AuthContext';
+
 import { Search, Menu } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -42,8 +44,12 @@ export default function Header({ onToggleMobileNav }: HeaderProps) {
 
       {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0 ml-2">
+        {/* Claims AI Analyzer Shortcut */}
+        <ClaimsAnalyzerModal triggerButtonText="Sinistres IA" triggerButtonSize="sm" />
+
         {/* Notification Bell */}
         <NotificationBell />
+
 
         {/* User Badge */}
         <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-border">

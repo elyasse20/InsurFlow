@@ -5,6 +5,8 @@ import {
   CopilotChatRequest,
   CopilotChatResponse,
   CopilotMessage,
+  ClaimAnalysisRequest,
+  ClaimAnalysisResponse,
 } from '@/types';
 
 /**
@@ -64,5 +66,34 @@ export async function sendCopilotMessage(
   } catch (error) {
     console.error('Error calling /api/ai/copilot route:', error);
     throw error;
+  }
+}
+
+/**
+ * Analyzes an insurance claim statement / constat report for executive summary, liability, and fraud indicators.
+ */
+export async function analyzeClaim(request: ClaimAnalysisRequest): Promise<ClaimAnalysisResponse> {
+  // First try Next.js local API route for direct Gemini processing
+  try {
+    const res = await fetch('/api/ai/claims-analyzer', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (localErr) {
+    console.warn('Next.js /api/ai/claims-analyzer failed, attempting Spring Boot backend fallback...', localErr);
+  }
+
+  // Fallback to Spring Boot backend
+  try {
+    const backendRes = await api.post<ClaimAnalysisResponse>('/ai/claims-analyzer', request);
+    return backendRes.data;
+  } catch (backendErr) {
+    console.error('Both Next.js and backend Claims Analyzer calls failed:', backendErr);
+    throw backendErr;
   }
 }

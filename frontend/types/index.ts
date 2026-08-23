@@ -236,4 +236,36 @@ export interface CopilotChatResponse {
   suggestedActions?: string[];
 }
 
+// ─── Claims AI Analyzer ───────────────────────────────────────────────────────
+export type FraudRiskLevel = 'FAIBLE' | 'MOYEN' | 'ÉLEVÉ';
+
+export interface ClaimFinancialBreakdown {
+  estimatedDamage: number;
+  deductible: number;
+  netPayout: number;
+  currency: string;
+  notes?: string;
+}
+
+export interface ClaimAnalysisRequest {
+  claimText: string;
+  policyNumber?: string;
+  clientName?: string;
+  incidentDate?: string;
+  category?: string;
+  estimatedDamage?: number;
+  deductible?: number;
+}
+
+export interface ClaimAnalysisResponse {
+  executiveSummary: string;
+  liabilityAssessment: string;
+  financialBreakdown: ClaimFinancialBreakdown;
+  fraudRiskScore: number; // 0 - 100
+  fraudRiskLevel: FraudRiskLevel;
+  riskFlags: string[];
+  recommendedActions: string[];
+}
+
+
 
