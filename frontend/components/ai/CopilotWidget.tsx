@@ -109,7 +109,7 @@ export default function CopilotWidget() {
   const [showHistory, setShowHistory] = useState(false);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [copiedId, setCopiedId] = useState<string | number | null>(null);
   const [isLoaded, setIsLoaded] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [sessions, setSessions] = useState<CopilotSession[]>([]);
@@ -125,6 +125,7 @@ export default function CopilotWidget() {
     'Explication franchise Tous Risques vs Tiers Collision',
     'Synthèse de l\'activité du portefeuille',
   ]);
+
 
   // ── 1. Fix localStorage Overwrite on Mount with isLoaded guard ───────────────
   useEffect(() => {
@@ -353,11 +354,30 @@ export default function CopilotWidget() {
     setShowHistory(false);
   };
 
-  const handleCopy = (text: string, index: number) => {
-    navigator.clipboard.writeText(text);
-    setCopiedIndex(index);
-    setTimeout(() => setCopiedIndex(null), 1800);
+  const handleCopy = async (text: string, msgId: string | number) => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof window !== 'undefined' && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        // Fallback for non-HTTPS / IP hosting (e.g. http://158.158.112.79:3000)
+        const textArea = document.createElement('textarea');
+        textArea.value = text;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedId(msgId);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
+    }
   };
+
 
   const renderFormattedContent = (content: string) => {
     const lines = content.split('\n');
@@ -732,17 +752,17 @@ export default function CopilotWidget() {
                             renderFormattedContent(msg.content)
                           )}
 
-                          {!isUser && msg.content.length > 50 && (
+                          {!isUser && msg.content.length > 20 && (
                             <button
                               type="button"
-                              onClick={() => handleCopy(msg.content, index)}
-                              className="absolute -top-2.5 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-card border border-border text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 shadow-sm cursor-pointer"
+                              onClick={() => handleCopy(msg.content, msg.id || index)}
+                              className="absolute -top-2.5 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-card border border-border text-muted-foreground hover:text-foreground px-1.5 py-0.5 rounded text-[10px] flex items-center gap-1 shadow-xs cursor-pointer z-10"
                               title="Copier la réponse"
                             >
-                              {copiedIndex === index ? (
+                              {copiedId === (msg.id || index) ? (
                                 <>
-                                  <Check className="w-3 h-3 text-emerald-400" />
-                                  <span className="text-emerald-400">Copié !</span>
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                  <span className="text-emerald-500 font-medium">Copié !</span>
                                 </>
                               ) : (
                                 <>
@@ -752,6 +772,7 @@ export default function CopilotWidget() {
                               )}
                             </button>
                           )}
+
                         </div>
 
                         {/* Small Timestamp below each message bubble */}

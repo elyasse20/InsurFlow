@@ -109,7 +109,7 @@ resource "azurerm_linux_virtual_machine" "vm" {
   location                        = azurerm_resource_group.rg.location
   size                            = "Standard_D2s_v3" # 4GB RAM + 2 vCPU
   admin_username                  = "adminuser"
-  admin_password                  = "P@ssw0rdInsurFlow2026!" # L'Mot de passe bach gha ndkhlou l'serveur
+  admin_password                  = "P@ssw0rdInsurFlow2026!" #  L'Mot de passe bach gha ndkhlou l'serveur
   disable_password_authentication = false
   network_interface_ids           = [azurerm_network_interface.nic.id]
 
