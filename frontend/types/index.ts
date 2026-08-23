@@ -183,3 +183,57 @@ export interface Invoice {
   createdAt: string;
   updatedAt?: string;
 }
+
+// ─── AI Risk Assessment ──────────────────────────────────────────────────────
+export type RiskLevel = 'LOW' | 'MEDIUM' | 'HIGH';
+
+export interface RiskAssessmentRequest {
+  clientName?: string;
+  clientAge?: number;
+  vehicleType?: string;
+  annualMileage?: number;
+  clientCreditBudget?: number;
+  historyClaimsCount?: number;
+  usageType?: string;
+  category?: string;
+  natureOperation?: string;
+}
+
+export interface RiskAssessmentResponse {
+  riskLevel: RiskLevel;
+  riskScore: number; // 0-100
+  summary: string;
+  pricingRecommendation: string;
+  recommendedGuarantees: string[];
+  flags: string[];
+}
+
+// ─── AI Copilot ──────────────────────────────────────────────────────────────
+export interface CopilotMessage {
+  id?: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  timestamp?: string;
+}
+
+export interface CopilotSession {
+  id: string;
+  title: string;
+  timestamp: string;
+  createdAt: number;
+  messages: CopilotMessage[];
+  preview?: string;
+}
+
+export interface CopilotChatRequest {
+  messages: CopilotMessage[];
+  contextPage?: string;
+}
+
+export interface CopilotChatResponse {
+  response: string;
+  message?: string;
+  suggestedActions?: string[];
+}
+
+

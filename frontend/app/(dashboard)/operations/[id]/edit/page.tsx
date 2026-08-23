@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Trash2, Loader2, AlertCircle, FileText, TrendingUp, Plus, PieChart } from 'lucide-react';
+import { ArrowLeft, Trash2, Loader2, AlertCircle, FileText, TrendingUp, Plus, PieChart, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
 import { Nature, Category, Compagne, Tva, Parametre, Production, Client, CompagneRepartition } from '@/types';
+import RiskAssessmentModal from '@/components/ai/RiskAssessmentModal';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -171,6 +172,44 @@ export default function EditOperationPage() {
     } finally { setSaving(false); }
   };
 
+  const handleApplyAiGuarantees = (suggestedGuarantees: string[]) => {
+    const rate = getCommissionRate(form.category);
+    setParams(prev => {
+      const existing = prev.filter(p => p.name.trim() !== '' || p.primes > 0);
+      const existingNames = new Set(existing.map(p => p.name.toLowerCase()));
+
+      const newEntries = suggestedGuarantees
+        .filter(g => !existingNames.has(g.toLowerCase()))
+        .map(g => {
+          let primeEst = 400;
+          const gLower = g.toLowerCase();
+          if (gLower.includes('responsabilité') || gLower.includes('rc')) primeEst = 1200;
+          else if (gLower.includes('tous risques')) primeEst = 2500;
+          else if (gLower.includes('bris')) primeEst = 500;
+          else if (gLower.includes('vol') || gLower.includes('incendie')) primeEst = 750;
+          else if (gLower.includes('assistance')) primeEst = 350;
+          else if (gLower.includes('défense') || gLower.includes('recours')) primeEst = 250;
+          else if (gLower.includes('corps')) primeEst = 3500;
+          else if (gLower.includes('hospitalisation')) primeEst = 1800;
+
+          const taxe = Number((primeEst * 0.14).toFixed(2));
+          return {
+            name: g,
+            primes: primeEst,
+            taxe: taxe,
+            taxepara: 0,
+            accessoire: 50,
+            cnpc: 0,
+            commission: Number((primeEst * rate).toFixed(2)),
+          };
+        });
+
+      return existing.length === 0 && newEntries.length > 0
+        ? newEntries
+        : [...existing, ...newEntries];
+    });
+  };
+
   if (loading) return (
     <div className="max-w-5xl mx-auto w-full space-y-6">
       <div className="h-12 bg-muted/30 rounded-xl animate-pulse" />
@@ -180,20 +219,29 @@ export default function EditOperationPage() {
 
   return (
     <div className="max-w-5xl mx-auto w-full space-y-6 sm:space-y-8">
-      {/* Header — Modifier l'opération */}
-      <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => router.back()}>
-          <ArrowLeft className="w-4 h-4" />
-        </Button>
-        <div className="space-y-1">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-              <FileText className="w-4 h-4 text-primary" />
+      {/* Header — Modifier l'opération & AI Risk Advisor */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" className="h-9 w-9 flex-shrink-0" onClick={() => router.back()}>
+            <ArrowLeft className="w-4 h-4" />
+          </Button>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+                <FileText className="w-4 h-4 text-primary" />
+              </div>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Modifier l'opération</h1>
             </div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Modifier l'opération</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground pl-10">Modifier la police N° {form.numpolice}</p>
           </div>
-          <p className="text-xs sm:text-sm text-muted-foreground pl-10">Modifier la police N° {form.numpolice}</p>
         </div>
+
+        <RiskAssessmentModal
+          initialClientName={form.client}
+          initialCategory={form.category}
+          initialNature={form.natureOperation}
+          onApplyGuarantees={handleApplyAiGuarantees}
+        />
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -306,7 +354,12 @@ export default function EditOperationPage() {
                     <td className="py-3 pr-3">
                       <select value={param.name} onChange={setParam(i, 'name')} required
                         className="flex h-9 w-full rounded-lg border border-input bg-muted/30 px-3 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground min-w-[150px]">
-                        <option value="" className="bg-card">-- Paramètre --</option>
+                        <option value="" className="bg-card">-- Paramètre / Garantie --</option>
+                        {param.name && !parametres.some(p => p.name === param.name) && (
+                          <option value={param.name} className="bg-card font-medium text-primary">
+                            {param.name}
+                          </option>
+                        )}
                         {parametres.map(p => <option key={p.id} value={p.name} className="bg-card">{p.name}</option>)}
                       </select>
                     </td>

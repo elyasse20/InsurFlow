@@ -5,9 +5,10 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import NavBar from '@/components/NavBar';
 import Header from '@/components/Header';
+import CopilotWidget from '@/components/ai/CopilotWidget';
 
 /**
- * Dashboard layout — wraps all protected routes with responsive NavBar + Header + auth guard.
+ * Dashboard layout — wraps all protected routes with responsive NavBar + Header + auth guard + AI Copilot.
  */
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { isLoggedIn } = useAuth();
@@ -48,6 +49,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
         </main>
       </div>
+
+      {/* Floating AI Copilot Assistant */}
+      <CopilotWidget />
     </div>
   );
 }
