@@ -54,6 +54,9 @@ const PRESETS = [
     category: 'AUTO',
     damage: 18500,
     deductible: 2000,
+    clientName: 'SARL Bâtiment Moderne',
+    policyNumber: 'POL-2026-CAS-0041',
+    dateSinistre: '2026-08-23',
     text: "Autoroute Casablanca - Rabat, PK 45. Fort ralentissement dû à un bouchon. Le véhicule A (notre assuré) s'est arrêté normalement. Le véhicule B (tiers immatriculé 12345-A-6) n'a pas maîtrisé son freinage et a percuté violemment l'arrière du véhicule A, le projetant sur le véhicule C. Constat amiable signé avec mention choc arrière. Dégâts importants malle arrière et pare-chocs.",
   },
   {
@@ -62,6 +65,9 @@ const PRESETS = [
     category: 'AUTO',
     damage: 9200,
     deductible: 1500,
+    clientName: 'Karim Benjelloun',
+    policyNumber: 'POL-2026-RA-0198',
+    dateSinistre: '2026-08-20',
     text: "L'assuré déclare avoir retrouvé son véhicule avec une aile avant gauche et portière embouties sur le parking d'un supermarché à Marrakech. Aucun témoin, aucun tiers identifié. Contrat souscrit il y a 8 jours. L'assuré demande une prise en charge intégrale sans application de franchise.",
   },
   {
@@ -70,6 +76,9 @@ const PRESETS = [
     category: 'AUTO',
     damage: 24000,
     deductible: 3000,
+    clientName: 'Société Atlas Transport',
+    policyNumber: 'POL-2026-TG-0842',
+    dateSinistre: '2026-08-18',
     text: "Véhicule stationné de nuit devant le domicile de l'assuré à Tanger. Constat au matin : vitre latérale brisée, tableau de bord démonté, système multimédia GPS et volant dérobés. Plainte déposée au commissariat du 3ème arrondissement (PV N° 8492/2026 fourni).",
   },
   {
@@ -78,6 +87,9 @@ const PRESETS = [
     category: 'AUTO',
     damage: 14000,
     deductible: 2500,
+    clientName: 'Mme Amina El Fassi',
+    policyNumber: 'POL-2026-FEZ-0312',
+    dateSinistre: '2026-08-22',
     text: "Intersection Boulevard Zerktouni / Rue d'Anfa. Collision entre le véhicule A (notre assuré venant de droite) et le véhicule B venant d'une voie avec panneau 'Cédez le passage'. Le conducteur B conteste et affirme que notre assuré roulait à vive allure. Constat amiable non signé par la partie adverse, présence de la police de la circulation.",
   },
 ];
@@ -97,9 +109,9 @@ export default function ClaimsAnalyzerModal({
 
   // Form states
   const [claimText, setClaimText] = useState(PRESETS[0].text);
-  const [clientName, setClientName] = useState(initialClientName || 'Société Atlas Transport');
-  const [policyNumber, setPolicyNumber] = useState(initialPolicyNumber || 'POL-2026-0927');
-  const [incidentDate, setIncidentDate] = useState(new Date().toISOString().slice(0, 10));
+  const [clientName, setClientName] = useState(initialClientName || PRESETS[0].clientName);
+  const [policyNumber, setPolicyNumber] = useState(initialPolicyNumber || PRESETS[0].policyNumber);
+  const [incidentDate, setIncidentDate] = useState(PRESETS[0].dateSinistre);
   const [category, setCategory] = useState(initialCategory);
   const [estimatedDamage, setEstimatedDamage] = useState<number>(PRESETS[0].damage);
   const [deductible, setDeductible] = useState<number>(PRESETS[0].deductible);
@@ -113,9 +125,13 @@ export default function ClaimsAnalyzerModal({
     setCategory(preset.category);
     setEstimatedDamage(preset.damage);
     setDeductible(preset.deductible);
+    if (preset.clientName) setClientName(preset.clientName);
+    if (preset.policyNumber) setPolicyNumber(preset.policyNumber);
+    if (preset.dateSinistre) setIncidentDate(preset.dateSinistre);
     setResult(null);
     setError(null);
   };
+
 
   const handleAnalyze = async () => {
     if (!claimText.trim()) {

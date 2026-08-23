@@ -92,12 +92,12 @@ export default function NotificationBell() {
   };
 
   return (
-    <div className="relative inline-block" ref={dropdownRef}>
+    <div className="relative" ref={dropdownRef}>
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          'relative p-2.5 rounded-xl transition-all duration-200 focus:outline-none',
+          'relative p-2.5 rounded-xl transition-all duration-200 focus:outline-none cursor-pointer',
           isOpen
             ? 'bg-primary/10 text-primary'
             : 'text-muted-foreground hover:bg-muted hover:text-foreground'
@@ -115,16 +115,16 @@ export default function NotificationBell() {
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="fixed sm:absolute right-2 sm:right-0 left-2 sm:left-auto top-16 sm:top-auto sm:mt-3 w-auto sm:w-96 max-w-full rounded-2xl bg-card border border-border shadow-2xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
           {/* Header */}
-          <div className="flex items-center justify-between px-4 py-3.5 border-b border-border bg-muted/30">
+          <div className="flex items-center justify-between px-4 py-3.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40">
             <div className="flex items-center gap-2">
               <div className="p-1.5 bg-primary/10 rounded-lg text-primary">
                 <Bell className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-foreground">Échéances & Renouvellements</h3>
-                <p className="text-[11px] text-muted-foreground">
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Échéances & Renouvellements</h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
                   {unreadCount > 0 ? `${unreadCount} alerte(s) non lue(s)` : 'Aucune alerte en attente'}
                 </p>
               </div>
@@ -134,14 +134,14 @@ export default function NotificationBell() {
               <button
                 onClick={handleTriggerCheck}
                 disabled={loading}
-                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
                 title="Scanner les échéances (Scan)"
               >
                 <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin text-primary')} />
               </button>
               <button
                 onClick={() => setIsOpen(false)}
-                className="p-1.5 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -150,11 +150,11 @@ export default function NotificationBell() {
 
           {/* Action Bar */}
           {notifications.length > 0 && (
-            <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-muted/10 text-xs">
-              <span className="text-muted-foreground font-medium">Polices arrivant à terme</span>
+            <div className="flex items-center justify-between px-4 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/40 dark:bg-slate-800/20 text-xs">
+              <span className="text-slate-500 dark:text-slate-400 font-medium">Polices arrivant à terme</span>
               <button
                 onClick={handleMarkAllAsRead}
-                className="flex items-center gap-1 text-primary hover:underline font-semibold"
+                className="flex items-center gap-1 text-primary hover:underline font-semibold cursor-pointer"
               >
                 <CheckCheck className="w-3.5 h-3.5" />
                 Tout marquer comme lu
@@ -163,15 +163,15 @@ export default function NotificationBell() {
           )}
 
           {/* Notifications List */}
-          <div className="max-h-80 overflow-y-auto divide-y divide-border/50">
+          <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80">
             {notifications.length === 0 ? (
               <div className="py-10 text-center px-4 space-y-2">
-                <div className="w-10 h-10 bg-emerald-500/10 text-emerald-500 rounded-full flex items-center justify-center mx-auto">
+                <div className="w-10 h-10 bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400 rounded-full flex items-center justify-center mx-auto shadow-xs">
                   <Check className="w-5 h-5" />
                 </div>
-                <p className="text-sm font-medium text-foreground">Tout est à jour !</p>
-                <p className="text-xs text-muted-foreground max-w-[240px] mx-auto">
-                  Aucune police d'assurance n'arrive à échéance dans les 30 prochains jours.
+                <p className="text-sm font-medium text-slate-900 dark:text-white">Tout est à jour !</p>
+                <p className="text-xs text-slate-600 dark:text-slate-300 max-w-[240px] mx-auto leading-relaxed">
+                  Aucune police d&apos;assurance n&apos;arrive à échéance dans les 30 prochains jours.
                 </p>
               </div>
             ) : (
@@ -181,8 +181,8 @@ export default function NotificationBell() {
                   <div
                     key={item.id}
                     className={cn(
-                      'p-4 transition-colors hover:bg-muted/50 flex items-start gap-3 relative group',
-                      isUrgent ? 'bg-red-500/5' : 'bg-amber-500/5'
+                      'p-4 transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/50 flex items-start gap-3 relative group',
+                      isUrgent ? 'bg-red-50/40 dark:bg-red-950/20' : 'bg-amber-50/40 dark:bg-amber-950/20'
                     )}
                   >
                     {/* Icon */}
@@ -200,30 +200,30 @@ export default function NotificationBell() {
                     {/* Details */}
                     <div className="flex-1 min-w-0 space-y-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-xs font-bold text-foreground truncate">
+                        <span className="text-xs font-bold text-slate-900 dark:text-white truncate">
                           Police N° {item.policyNumber}
                         </span>
                         <span
                           className={cn(
                             'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider',
                             isUrgent
-                              ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                              : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+                              ? 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30'
+                              : 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30'
                           )}
                         >
                           {isUrgent ? '15 Jours' : '30 Jours'}
                         </span>
                       </div>
 
-                      <p className="text-xs text-foreground font-medium truncate">
-                        Client : <span className="text-primary">{item.clientName}</span>
+                      <p className="text-xs text-slate-700 dark:text-slate-300 font-medium truncate">
+                        Client : <span className="text-primary font-semibold">{item.clientName}</span>
                       </p>
 
-                      <p className="text-[11px] text-muted-foreground leading-relaxed line-clamp-2">
+                      <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-relaxed line-clamp-2">
                         {item.message}
                       </p>
 
-                      <p className="text-[10px] text-muted-foreground/70 font-mono">
+                      <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
                         Échéance : {item.expirationDate}
                       </p>
                     </div>
@@ -231,7 +231,7 @@ export default function NotificationBell() {
                     {/* Mark as read button */}
                     <button
                       onClick={(e) => handleMarkAsRead(item.id, e)}
-                      className="p-1.5 rounded-lg text-muted-foreground hover:text-emerald-500 hover:bg-emerald-500/10 transition-colors flex-shrink-0 opacity-80 group-hover:opacity-100"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors flex-shrink-0 opacity-80 group-hover:opacity-100 cursor-pointer"
                       title="Marquer comme lu"
                     >
                       <Check className="w-4 h-4" />
@@ -243,6 +243,7 @@ export default function NotificationBell() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
