@@ -3,13 +3,12 @@ name: Deploy InsurFlow to Azure VM
 on:
   push:
     branches:
-      - main # (Wla 'master', 3la 7ssab smiyat l'branch dyalek f GitHub)
+      - main
 
 jobs:
   deploy:
     name: Build & Deploy
     runs-on: ubuntu-latest
-
     steps:
       - name: Deploy to Azure VM via SSH
         uses: appleboy/ssh-action@v1.0.3
@@ -17,9 +16,10 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: ${{ secrets.SERVER_USER }}
           password: ${{ secrets.SERVER_PASSWORD }}
+          command_timeout: 30m
+          timeout: 60s
           script: |
-            # L'commandes lli ghadi y't-executaw f l'serveur awtomatikiyn
             cd ~/InsurFlow
             git pull origin main
-            sudo docker compose down
-            sudo docker compose up --build -d
+            sudo docker compose up -d --build
+            sudo docker image prune -f
