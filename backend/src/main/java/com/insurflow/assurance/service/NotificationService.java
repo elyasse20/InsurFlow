@@ -199,6 +199,45 @@ public class NotificationService {
                 }
             }
 
+            // ── 2b. Guaranteed Mock Overdue Invoices (e.g. Travaux Généraux Atlas) ──
+            String mockOverdue1Ref = "FAC-IMP-2026-018";
+            if (!notificationRepository.existsByTypeAndReferenceId(NotificationType.QUITTANCE_IMPAYEE, mockOverdue1Ref)) {
+                Notification overdueAlert1 = Notification.builder()
+                        .title("Quittance Impayée - Retard Critique (18j)")
+                        .message("La quittance N° FAC-2026-018 pour le client Travaux Généraux Atlas présente un impayé de 14 500,00 MAD en souffrance depuis 18 jours.")
+                        .type(NotificationType.QUITTANCE_IMPAYEE)
+                        .severity(NotificationSeverity.CRITICAL)
+                        .referenceId(mockOverdue1Ref)
+                        .policyNumber("POL-2026-018")
+                        .clientName("Travaux Généraux Atlas")
+                        .amount(14500.0)
+                        .isRead(false)
+                        .createdAt(LocalDateTime.now().minusDays(18))
+                        .build();
+
+                created.add(notificationRepository.save(overdueAlert1));
+                log.info("✓ Created mock overdue invoice alert for {}", mockOverdue1Ref);
+            }
+
+            String mockOverdue2Ref = "FAC-IMP-2026-025";
+            if (!notificationRepository.existsByTypeAndReferenceId(NotificationType.QUITTANCE_IMPAYEE, mockOverdue2Ref)) {
+                Notification overdueAlert2 = Notification.builder()
+                        .title("Quittance Impayée - Échéance Dépassée (12j)")
+                        .message("La quittance N° FAC-2026-025 pour Société Maghreb Contracting SA présente un solde impayé de 22 800,00 MAD en souffrance depuis 12 jours.")
+                        .type(NotificationType.QUITTANCE_IMPAYEE)
+                        .severity(NotificationSeverity.WARNING)
+                        .referenceId(mockOverdue2Ref)
+                        .policyNumber("POL-2026-025")
+                        .clientName("Société Maghreb Contracting SA")
+                        .amount(22800.0)
+                        .isRead(false)
+                        .createdAt(LocalDateTime.now().minusDays(12))
+                        .build();
+
+                created.add(notificationRepository.save(overdueAlert2));
+                log.info("✓ Created mock overdue invoice alert for {}", mockOverdue2Ref);
+            }
+
             // ── 3. High-Risk Claim & Fraud AI Alerts ──────────────────────────
             // Generate contextual AI alerts for fraud patterns and high-severity claims
             String fraudRefId = "CLAIM-FRAUD-2026-01";

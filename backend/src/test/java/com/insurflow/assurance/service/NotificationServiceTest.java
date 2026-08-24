@@ -131,9 +131,11 @@ class NotificationServiceTest {
         boolean hasRenewal = created.stream().anyMatch(n -> n.getType() == NotificationType.ECHEANCE_RENOUVELLEMENT);
         boolean hasUnpaid = created.stream().anyMatch(n -> n.getType() == NotificationType.QUITTANCE_IMPAYEE);
         boolean hasFraud = created.stream().anyMatch(n -> n.getType() == NotificationType.FRAUDE_IA);
+        boolean hasAtlasMock = created.stream().anyMatch(n -> "Travaux Généraux Atlas".equals(n.getClientName()) && n.getAmount() != null && n.getAmount() == 14500.0);
 
         assertTrue(hasRenewal, "Should create renewal alert");
         assertTrue(hasUnpaid, "Should create unpaid invoice alert");
         assertTrue(hasFraud, "Should create AI fraud alert");
+        assertTrue(hasAtlasMock, "Should create Travaux Généraux Atlas overdue unpaid invoice alert");
     }
 }

@@ -261,6 +261,7 @@ public class DataSeederService {
 
                 // Sociétés
                 Client.builder().type(Client.ClientType.societe).nom("Société Maghreb Contracting SA").ice("001847593000045").identifiantFiscal("40283921").rc("128475 Casablanca").tel("+212 522-345678").adresse("Zone Industrielle Ain Sebaâ, Casablanca").budget(150000).dateDebut(dateStart).build(),
+                Client.builder().type(Client.ClientType.societe).nom("Travaux Généraux Atlas SARL").ice("002498132000067").identifiantFiscal("49182304").rc("154982 Casablanca").tel("+212 522-654987").adresse("34 Boulevard d'Anfa, Casablanca").budget(175000).dateDebut(dateStart).build(),
                 Client.builder().type(Client.ClientType.societe).nom("Atlas Logistique & Transport SARL").ice("002154879000032").identifiantFiscal("51294830").rc("98452 Tanger").tel("+212 539-876543").adresse("Zone Franche Tanger Med, Tanger").budget(220000).dateDebut(dateStart).build(),
                 Client.builder().type(Client.ClientType.societe).nom("Pharmacie du Parc SARL").ice("001982734000012").identifiantFiscal("38472910").rc("65432 Rabat").tel("+212 537-654321").adresse("Avenue de France, Agdal, Rabat").budget(65000).dateDebut(dateStart).build(),
                 Client.builder().type(Client.ClientType.societe).nom("High Tech Trading SA").ice("002394857000088").identifiantFiscal("62938471").rc("145890 Casablanca").tel("+212 522-876543").adresse("Technopark, Route de Nouaceur, Casablanca").budget(95000).dateDebut(dateStart).build(),
