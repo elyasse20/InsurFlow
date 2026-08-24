@@ -318,6 +318,7 @@ export default function CopilotWidget() {
     setCurrentSessionId(null);
     const freshWelcome = getDefaultWelcomeMessage();
     setMessages([freshWelcome]);
+    setInput('');
     setSuggestedActions([
       'Quelles sont les polices à renouveler ce mois ?',
       'Rédiger un email de relance de quittance impayée',
@@ -326,6 +327,25 @@ export default function CopilotWidget() {
     ]);
     setShowHistory(false);
   };
+
+  // ── Global Custom Event Listener for InsurFlow AI Triggers ────────────────
+  useEffect(() => {
+    const handleOpenCopilotEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ prompt?: string; initialInput?: string; autoSend?: boolean }>;
+      const { prompt, initialInput, autoSend } = customEvent.detail || {};
+      setIsOpen(true);
+      setShowHistory(false);
+      if (autoSend && prompt) {
+        handleSendMessage(prompt);
+      } else if (prompt || initialInput) {
+        setInput(prompt || initialInput || '');
+        setTimeout(() => inputRef.current?.focus(), 150);
+      }
+    };
+
+    window.addEventListener('insurflow:open-copilot', handleOpenCopilotEvent);
+    return () => window.removeEventListener('insurflow:open-copilot', handleOpenCopilotEvent);
+  }, [messages, loading, pathname]);
 
   // ── Load a specific conversation thread from History ────────────────────────
   const handleSelectSession = (session: CopilotSession) => {

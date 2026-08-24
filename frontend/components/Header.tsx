@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import NotificationBell from '@/components/NotificationBell';
+import NotificationDropdown from '@/components/NotificationDropdown';
 import ClaimsAnalyzerModal from '@/components/ai/ClaimsAnalyzerModal';
 import { useAuth } from '@/context/AuthContext';
 
@@ -47,8 +47,8 @@ export default function Header({ onToggleMobileNav }: HeaderProps) {
         {/* Claims AI Analyzer Shortcut */}
         <ClaimsAnalyzerModal triggerButtonText="Sinistres IA" triggerButtonSize="sm" />
 
-        {/* Notification Bell */}
-        <NotificationBell />
+        {/* Notification Bell & Dropdown */}
+        <NotificationDropdown />
 
 
         {/* User Badge */}

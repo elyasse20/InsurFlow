@@ -16,5 +16,7 @@ public interface NotificationRepository extends MongoRepository<Notification, St
 
     long countByIsReadFalse();
 
+    boolean existsByTypeAndReferenceId(NotificationType type, String referenceId);
+
     boolean existsByPolicyNumberAndType(String policyNumber, NotificationType type);
 }

@@ -267,5 +267,28 @@ export interface ClaimAnalysisResponse {
   recommendedActions: string[];
 }
 
+// ─── Automated Notifications & Alerts ─────────────────────────────────────────
+export type NotificationType =
+  | 'ECHEANCE_RENOUVELLEMENT'
+  | 'QUITTANCE_IMPAYEE'
+  | 'SINISTRE_ALERTE'
+  | 'FRAUDE_IA'
+  | 'RENEWAL_30_DAYS'
+  | 'RENEWAL_15_DAYS';
 
+export type NotificationSeverity = 'INFO' | 'WARNING' | 'CRITICAL';
 
+export interface NotificationItem {
+  id: string;
+  title?: string;
+  message: string;
+  type: NotificationType;
+  severity: NotificationSeverity;
+  referenceId?: string;
+  clientName?: string;
+  amount?: number | null;
+  policyNumber?: string;
+  expirationDate?: string;
+  isRead: boolean;
+  createdAt: string;
+}
