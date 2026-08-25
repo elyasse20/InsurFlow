@@ -70,7 +70,7 @@ jobs:
 
       # ── Repository & Filesystem Scan ───────────────────────────────────────
       - name: Run Trivy Vulnerability & Secret Scan (Filesystem)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -81,7 +81,7 @@ jobs:
           output: 'trivy-fs-report.txt'
 
       - name: Generate Trivy SARIF Output
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         if: always()
         with:
           scan-type: 'fs'
@@ -99,7 +99,7 @@ jobs:
 
       # ── Docker Image Scans ────────────────────────────────────────────────
       - name: Scan Backend Docker Image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'insurflow-backend:scan'
           format: 'table'
@@ -108,7 +108,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Scan Frontend Docker Image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'insurflow-frontend:scan'
           format: 'table'
@@ -117,7 +117,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Scan Nginx Docker Image
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@master
         with:
           image-ref: 'nginx:alpine'
           format: 'table'
