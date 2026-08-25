@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     const vehicle = (body.vehicleType ?? 'Berline').trim();
     const usage = (body.usageType ?? 'Personnel').trim();
     const category = (body.category ?? 'AUTO').trim().toUpperCase();
-    const budget = body.clientCreditBudget ?? 5000;
+    const _budget = body.clientCreditBudget ?? 5000;
 
     let score = 70;
     const flags: string[] = [];

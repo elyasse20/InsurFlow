@@ -229,7 +229,7 @@ export default function DashboardPage() {
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Tableau de bord</h1>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground pl-10 sm:pl-12">
-            Vue d'ensemble de l'activité — Exercice {exercice}
+            Vue d&apos;ensemble de l&apos;activité — Exercice {exercice}
           </p>
         </div>
         <div className="flex-shrink-0">
@@ -351,7 +351,7 @@ export default function DashboardPage() {
         <div className="rounded-xl border border-border bg-card p-4 sm:p-6 space-y-4">
           <div>
             <h2 className="text-sm font-semibold text-foreground">Top compagnies</h2>
-            <p className="text-xs text-muted-foreground">Nombre d'opérations par CIE</p>
+            <p className="text-xs text-muted-foreground">Nombre d&apos;opérations par CIE</p>
           </div>
           {loading ? (
             <Skeleton className="h-40 w-full rounded-lg" />

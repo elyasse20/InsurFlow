@@ -8,17 +8,13 @@ import {
   Clock,
   Calendar,
   DollarSign,
-  ShieldAlert,
   Check,
   CheckCheck,
   RefreshCw,
   X,
   ExternalLink,
   Sparkles,
-  ChevronRight,
-  Filter,
   CheckCircle2,
-  FileText,
 } from 'lucide-react';
 import api from '@/lib/api';
 import { NotificationItem, NotificationSeverity, NotificationType } from '@/types';
@@ -30,7 +26,6 @@ export default function NotificationDropdown() {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(false);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'ALL' | 'CRITICAL' | 'RENEWAL' | 'UNPAID' | 'AI'>('ALL');
   const dropdownRef = useRef<HTMLDivElement>(null);

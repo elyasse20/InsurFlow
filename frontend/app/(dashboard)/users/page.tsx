@@ -281,7 +281,7 @@ export default function UsersPage() {
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>Supprimer cet utilisateur ?</AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    L'utilisateur <span className="font-semibold text-foreground">{u.username}</span> sera définitivement supprimé du système.
+                                    L&apos;utilisateur <span className="font-semibold text-foreground">{u.username}</span> sera définitivement supprimé du système.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -324,7 +324,7 @@ export default function UsersPage() {
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             {/* Username */}
             <div className="space-y-1.5">
-              <Label htmlFor="u-username">Nom d'utilisateur <span className="text-destructive">*</span></Label>
+              <Label htmlFor="u-username">Nom d&apos;utilisateur <span className="text-destructive">*</span></Label>
               <Input
                 id="u-username"
                 value={formData.username}
@@ -393,7 +393,7 @@ export default function UsersPage() {
             <div className="flex items-center justify-between p-3 rounded-xl bg-muted/20 border border-border">
               <div>
                 <p className="text-sm font-medium text-foreground">Compte actif</p>
-                <p className="text-xs text-muted-foreground">L'utilisateur peut se connecter</p>
+                <p className="text-xs text-muted-foreground">L&apos;utilisateur peut se connecter</p>
               </div>
               <input
                 type="checkbox"

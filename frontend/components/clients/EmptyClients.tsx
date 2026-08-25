@@ -51,7 +51,7 @@ export function EmptyClients({ onAddClient, isFiltered = false }: EmptyClientsPr
       </h3>
       <p className="text-sm text-muted-foreground max-w-md leading-relaxed mb-8">
         Votre portefeuille client est vide pour le moment. Commencez par ajouter
-        votre premier client pour gérer ses contrats et opérations d'assurance.
+        votre premier client pour gérer ses contrats et opérations d&apos;assurance.
       </p>
 
       <Button

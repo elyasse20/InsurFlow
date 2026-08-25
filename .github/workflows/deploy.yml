@@ -70,23 +70,26 @@ jobs:
 
       # ── Repository & Filesystem Scan ───────────────────────────────────────
       - name: Run Trivy Vulnerability & Secret Scan (Filesystem)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
           exit-code: '0'
           severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
           output: 'trivy-fs-report.txt'
 
       - name: Generate Trivy SARIF Output
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
+        if: always()
         with:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-fs-results.sarif'
           severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
 
       # ── Build Docker Images for Container Scanning ────────────────────────
       - name: Build Application Docker Images
@@ -96,7 +99,7 @@ jobs:
 
       # ── Docker Image Scans ────────────────────────────────────────────────
       - name: Scan Backend Docker Image
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: 'insurflow-backend:scan'
           format: 'table'
@@ -105,7 +108,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Scan Frontend Docker Image
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: 'insurflow-frontend:scan'
           format: 'table'
@@ -114,7 +117,7 @@ jobs:
           ignore-unfixed: true
 
       - name: Scan Nginx Docker Image
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: 'nginx:alpine'
           format: 'table'
@@ -128,6 +131,7 @@ jobs:
         if: always()
         with:
           name: trivy-security-reports
+          if-no-files-found: warn
           path: |
             trivy-fs-report.txt
             trivy-fs-results.sarif

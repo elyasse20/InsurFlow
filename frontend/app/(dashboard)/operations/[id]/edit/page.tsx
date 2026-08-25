@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { ArrowLeft, Trash2, Loader2, AlertCircle, FileText, TrendingUp, Plus, PieChart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Trash2, Loader2, AlertCircle, FileText, TrendingUp, Plus, PieChart } from 'lucide-react';
 import api from '@/lib/api';
 import { Nature, Category, Compagne, Tva, Parametre, Production, Client, CompagneRepartition } from '@/types';
 import RiskAssessmentModal from '@/components/ai/RiskAssessmentModal';
@@ -230,7 +230,7 @@ export default function EditOperationPage() {
               <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
                 <FileText className="w-4 h-4 text-primary" />
               </div>
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Modifier l'opération</h1>
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Modifier l&apos;opération</h1>
             </div>
             <p className="text-xs sm:text-sm text-muted-foreground pl-10">Modifier la police N° {form.numpolice}</p>
           </div>
@@ -412,7 +412,7 @@ export default function EditOperationPage() {
           <Separator />
           {repartitions.length === 0 ? (
             <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">
-              Aucune répartition définie. Cliquez sur "Ajouter" pour configurer la répartition entre CIE.
+              Aucune répartition définie. Cliquez sur &quot;Ajouter&quot; pour configurer la répartition entre CIE.
             </p>
           ) : (
             <div className="space-y-3">

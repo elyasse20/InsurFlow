@@ -89,7 +89,7 @@ function EmptyOperations({ onAdd }: { onAdd: () => void }) {
       </div>
       <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Aucune opération enregistrée</h3>
       <p className="text-xs sm:text-sm text-muted-foreground max-w-md leading-relaxed mb-6">
-        Commencez par créer votre première opération (police d'assurance) pour gérer vos productions.
+        Commencez par créer votre première opération (police d&apos;assurance) pour gérer vos productions.
       </p>
       <Button onClick={onAdd} className="gap-2 shadow-lg shadow-primary/20" size="default">
         <Plus className="w-4 h-4" />

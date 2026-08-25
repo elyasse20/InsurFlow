@@ -9,16 +9,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   TrendingDown,
-  TrendingUp,
   Info,
   Loader2,
-  ChevronRight,
   PlusCircle,
-  Car,
   Gauge,
-  UserCheck,
-  History,
-  RotateCcw,
   Check,
 } from 'lucide-react';
 import {
@@ -189,7 +183,7 @@ export default function RiskAssessmentModal({
           <div className="flex items-center gap-2 font-semibold text-primary">
             <Sparkles className="w-4 h-4 animate-pulse text-primary" />
             <Brain className="w-4 h-4 text-primary" />
-            <span>Évaluer le risque avec l'IA</span>
+            <span>Évaluer le risque avec l&apos;IA</span>
           </div>
         </Button>
       </DialogTrigger>
@@ -458,7 +452,7 @@ export default function RiskAssessmentModal({
                     <div>
                       <h4 className="text-xs sm:text-sm font-bold text-foreground flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-primary" />
-                        Garanties recommandées par l'IA ({selectedGuarantees.length} sélectionnée{selectedGuarantees.length > 1 ? 's' : ''})
+                        Garanties recommandées par l&apos;IA ({selectedGuarantees.length} sélectionnée{selectedGuarantees.length > 1 ? 's' : ''})
                       </h4>
                       <p className="text-xs text-muted-foreground">
                         Cliquez pour ajuster les garanties à injecter dans la police.

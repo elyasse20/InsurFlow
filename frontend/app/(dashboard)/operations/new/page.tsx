@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Loader2, AlertCircle, FileText, TrendingUp, PieChart, Sparkles } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Loader2, AlertCircle, FileText, TrendingUp, PieChart } from 'lucide-react';
 import api from '@/lib/api';
 import { Nature, Category, Compagne, Tva, Parametre, ProductionParameter, Client, CompagneRepartition } from '@/types';
 import RiskAssessmentModal from '@/components/ai/RiskAssessmentModal';
@@ -203,7 +203,7 @@ export default function NewOperationPage() {
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">Nouvelle opération</h1>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground pl-10">Créer une nouvelle police d'assurance</p>
+            <p className="text-xs sm:text-sm text-muted-foreground pl-10">Créer une nouvelle police d&apos;assurance</p>
           </div>
         </div>
 
@@ -383,7 +383,7 @@ export default function NewOperationPage() {
           <Separator />
           {repartitions.length === 0 ? (
             <p className="text-xs sm:text-sm text-muted-foreground text-center py-4">
-              Aucune répartition définie. Cliquez sur "Ajouter" pour configurer la répartition entre CIE.
+              Aucune répartition définie. Cliquez sur &quot;Ajouter&quot; pour configurer la répartition entre CIE.
             </p>
           ) : (
             <div className="space-y-3">

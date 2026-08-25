@@ -14,19 +14,11 @@ import {
   Check,
   Loader2,
   RotateCcw,
-  Building2,
-  Calendar,
-  User,
-  Hash,
-  Car,
   ChevronRight,
-  ArrowRight,
-  Info,
 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';

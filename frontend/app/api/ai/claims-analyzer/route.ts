@@ -44,7 +44,9 @@ function evaluateFallbackClaimsEngine(req: ClaimAnalysisRequest): ClaimAnalysisR
         const clean = match[1].replace(/\s+/g, '').replace(',', '.');
         const parsed = parseFloat(clean);
         if (!isNaN(parsed)) estimatedDamage = parsed;
-      } catch (_) {}
+      } catch {
+        // Fallback to default estimatedDamage
+      }
     }
   }
 

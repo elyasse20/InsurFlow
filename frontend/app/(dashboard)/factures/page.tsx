@@ -139,7 +139,7 @@ export default function FacturesPage() {
       {/* Summary Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         <div className="p-4 sm:p-5 rounded-2xl border border-border bg-card shadow-sm space-y-1.5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chiffre d'Affaires Facturé</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chiffre d&apos;Affaires Facturé</p>
           <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{totalFacture.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
           <p className="text-[11px] text-muted-foreground">Primes émettant des factures standard</p>
         </div>
@@ -157,7 +157,7 @@ export default function FacturesPage() {
         </div>
 
         <div className="p-4 sm:p-5 rounded-2xl border border-purple-500/20 bg-purple-500/5 shadow-sm space-y-1.5">
-          <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider">Factures d'Avoir</p>
+          <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider">Factures d&apos;Avoir</p>
           <p className="text-xl sm:text-2xl font-bold text-purple-300 tabular-nums">{totalAvoirs.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
           <p className="text-[11px] text-purple-400/70">Annulations & régularisations</p>
         </div>

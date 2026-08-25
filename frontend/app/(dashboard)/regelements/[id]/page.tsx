@@ -374,7 +374,7 @@ function PaymentsSection({
                       <CreditCard className="w-5 h-5 text-muted-foreground/40" />
                     </div>
                     <p className="text-sm font-medium text-foreground mb-0.5">Aucun paiement enregistré</p>
-                    <p className="text-xs text-muted-foreground">Cliquez sur "Ajouter paiement" pour enregistrer un versement.</p>
+                    <p className="text-xs text-muted-foreground">Cliquez sur &quot;Ajouter paiement&quot; pour enregistrer un versement.</p>
                   </div>
                 </TableCell>
               </TableRow>

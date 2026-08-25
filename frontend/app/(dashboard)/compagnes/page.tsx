@@ -29,7 +29,7 @@ function EmptyCompagnes({ onAdd }: { onAdd: () => void }) {
       </div>
       <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">Aucune compagnie configurée</h3>
       <p className="text-xs sm:text-sm text-muted-foreground max-w-md leading-relaxed mb-6">
-        Configurez vos compagnies d'assurance avec leurs catégories et paramètres de tarification.
+        Configurez vos compagnies d&apos;assurance avec leurs catégories et paramètres de tarification.
       </p>
       <Button onClick={onAdd} className="gap-2 shadow-lg shadow-primary/20" size="default">
         <Plus className="w-4 h-4" />
