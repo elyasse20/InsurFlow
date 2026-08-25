@@ -92,30 +92,19 @@ jobs:
           touch trivy-fs-report.txt
           touch trivy-fs-results.sarif
 
-      # ── Fast Filesystem & Dependency Vulnerability Scan ────────────────────
-      - name: Run Trivy Vulnerability & Secret Scan (Filesystem)
-        uses: aquasecurity/trivy-action@master
-        continue-on-error: true
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'table'
-          output: 'trivy-fs-report.txt'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-          exit-code: '0'
+      # ── Direct Trivy CLI Installation & Fast Scan ─────────────────────────
+      - name: Install Trivy CLI
+        run: |
+          sudo apt-get install wget apt-transport-https gnupg lsb-release -y
+          wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+          sudo apt-get update
+          sudo apt-get install trivy -y
 
-      - name: Generate Trivy SARIF Output
-        uses: aquasecurity/trivy-action@master
-        continue-on-error: true
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'sarif'
-          output: 'trivy-fs-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-          exit-code: '0'
+      - name: Run Trivy Security Scan & Generate Reports
+        run: |
+          trivy fs --severity CRITICAL,HIGH --ignore-unfixed --output trivy-fs-report.txt . || true
+          trivy fs --format sarif --output trivy-fs-results.sarif . || true
 
       # ── Upload Scan Artifacts ─────────────────────────────────────────────
       - name: Upload Trivy Security Reports
