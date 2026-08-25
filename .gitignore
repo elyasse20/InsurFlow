@@ -52,4 +52,8 @@ infra/.terraform/
 
 # ── Certbot / Let's Encrypt ────────────────────────────────────────────────────
 certbot/conf/
-certbot/www/
+certbot/www/
+
+# ── Database Backups ───────────────────────────────────────────────────────────
+backups/
+
