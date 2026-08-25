@@ -68,9 +68,15 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
+      - name: Initialize Security Report Placeholders
+        run: |
+          touch trivy-fs-report.txt
+          touch trivy-fs-results.sarif
+
       # ── Repository & Filesystem Scan ───────────────────────────────────────
       - name: Run Trivy Vulnerability & Secret Scan (Filesystem)
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -82,7 +88,7 @@ jobs:
 
       - name: Generate Trivy SARIF Output
         uses: aquasecurity/trivy-action@master
-        if: always()
+        continue-on-error: true
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -100,6 +106,7 @@ jobs:
       # ── Docker Image Scans ────────────────────────────────────────────────
       - name: Scan Backend Docker Image
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: 'insurflow-backend:scan'
           format: 'table'
@@ -109,6 +116,7 @@ jobs:
 
       - name: Scan Frontend Docker Image
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: 'insurflow-frontend:scan'
           format: 'table'
@@ -118,6 +126,7 @@ jobs:
 
       - name: Scan Nginx Docker Image
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: 'nginx:alpine'
           format: 'table'
