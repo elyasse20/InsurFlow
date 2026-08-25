@@ -100,10 +100,10 @@ jobs:
           scan-type: 'fs'
           scan-ref: '.'
           format: 'table'
-          exit-code: '0'
+          output: 'trivy-fs-report.txt'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
-          output: 'trivy-fs-report.txt'
+          exit-code: '0'
 
       - name: Generate Trivy SARIF Output
         uses: aquasecurity/trivy-action@master
@@ -115,6 +115,7 @@ jobs:
           output: 'trivy-fs-results.sarif'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
+          exit-code: '0'
 
       # ── Upload Scan Artifacts ─────────────────────────────────────────────
       - name: Upload Trivy Security Reports
