@@ -75,6 +75,8 @@ public class SecurityConfig {
                 .requestMatchers("/api/seed/**").permitAll()
                 // Static file serving for uploads
                 .requestMatchers("/api/uploads/**").permitAll()
+                // Spring Boot Actuator & Prometheus metrics
+                .requestMatchers("/actuator/**").permitAll()
                 // Admin-only user management
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
                 // Everything else requires authentication

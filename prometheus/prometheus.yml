@@ -1,0 +1,18 @@
+# =============================================================================
+# InsurFlow - Prometheus Scrape Configuration
+# =============================================================================
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  scrape_timeout: 10s
+
+scrape_configs:
+  - job_name: 'insurflow-backend'
+    metrics_path: '/actuator/prometheus'
+    scheme: 'http'
+    static_configs:
+      - targets: ['backend:8080']
+        labels:
+          application: 'insurflow-backend'
+          environment: 'production'
