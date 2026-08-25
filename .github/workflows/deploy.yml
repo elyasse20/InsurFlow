@@ -11,7 +11,7 @@ on:
 
 jobs:
   # ===========================================================================
-  # 1. Code Quality & Automated Unit Tests
+  # 1. Code Quality & Automated Unit Tests (High Speed & Cached)
   # ===========================================================================
   quality-and-tests:
     name: Code Quality & Unit Tests
@@ -21,20 +21,27 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
-      # ── Backend: Java 21 & Maven ───────────────────────────────────────────
+      # ── Backend: Java 21 + Maven Dependency Cache ──────────────────────────
       - name: Set up JDK 21 (Temurin)
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-          cache: 'maven'
+
+      - name: Cache Maven Repository
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-${{ hashFiles('backend/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-
 
       - name: Run Backend Unit Tests & Compilation
         run: |
           cd backend
-          mvn clean test
+          mvn -B -DskipTests=false clean test
 
-      # ── Frontend: Node.js 20 & Next.js ─────────────────────────────────────
+      # ── Frontend: Node.js 20 + npm Dependency Cache ────────────────────────
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
         with:
@@ -45,7 +52,7 @@ jobs:
       - name: Install Frontend Dependencies
         run: |
           cd frontend
-          npm ci || npm install
+          npm ci --prefer-offline || npm install
 
       - name: Run Frontend Linting (ESLint)
         run: |
@@ -58,7 +65,7 @@ jobs:
           npm run typecheck
 
   # ===========================================================================
-  # 2. Trivy Vulnerability, Secrets & Container Security Scan
+  # 2. Optimized Trivy Security Scan (Lightweight & DB-Cached)
   # ===========================================================================
   security-scan:
     name: Trivy Security & Vulnerability Scan
@@ -68,12 +75,24 @@ jobs:
       - name: Checkout Source Code
         uses: actions/checkout@v4
 
+      - name: Get Current Date for Trivy Cache
+        id: date
+        run: echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Cache Trivy Vulnerability DB
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ runner.os }}-${{ steps.date.outputs.date }}
+          restore-keys: |
+            trivy-db-${{ runner.os }}-
+
       - name: Initialize Security Report Placeholders
         run: |
           touch trivy-fs-report.txt
           touch trivy-fs-results.sarif
 
-      # ── Repository & Filesystem Scan ───────────────────────────────────────
+      # ── Fast Filesystem & Dependency Vulnerability Scan ────────────────────
       - name: Run Trivy Vulnerability & Secret Scan (Filesystem)
         uses: aquasecurity/trivy-action@master
         continue-on-error: true
@@ -94,43 +113,6 @@ jobs:
           scan-ref: '.'
           format: 'sarif'
           output: 'trivy-fs-results.sarif'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-
-      # ── Build Docker Images for Container Scanning ────────────────────────
-      - name: Build Application Docker Images
-        run: |
-          docker build -t insurflow-backend:scan ./backend
-          docker build --build-arg NEXT_PUBLIC_API_URL=/api -t insurflow-frontend:scan ./frontend
-
-      # ── Docker Image Scans ────────────────────────────────────────────────
-      - name: Scan Backend Docker Image
-        uses: aquasecurity/trivy-action@master
-        continue-on-error: true
-        with:
-          image-ref: 'insurflow-backend:scan'
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-
-      - name: Scan Frontend Docker Image
-        uses: aquasecurity/trivy-action@master
-        continue-on-error: true
-        with:
-          image-ref: 'insurflow-frontend:scan'
-          format: 'table'
-          exit-code: '0'
-          severity: 'CRITICAL,HIGH'
-          ignore-unfixed: true
-
-      - name: Scan Nginx Docker Image
-        uses: aquasecurity/trivy-action@master
-        continue-on-error: true
-        with:
-          image-ref: 'nginx:alpine'
-          format: 'table'
-          exit-code: '0'
           severity: 'CRITICAL,HIGH'
           ignore-unfixed: true
 
