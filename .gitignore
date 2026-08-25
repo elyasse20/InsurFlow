@@ -49,3 +49,7 @@ infra/.terraform/
 *.tfstate
 *.tfstate.backup
 .terraform.lock.hcl
+
+# ── Certbot / Let's Encrypt ────────────────────────────────────────────────────
+certbot/conf/
+certbot/www/
