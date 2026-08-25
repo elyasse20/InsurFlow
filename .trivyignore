@@ -1,0 +1,7 @@
+# ==============================================================================
+# InsurFlow - Trivy Vulnerability Scanner Ignore Configuration
+# ==============================================================================
+# Add CVE IDs or false-positive security finding IDs below along with rationale.
+# Format:
+# CVE-YYYY-XXXXX
+# ==============================================================================

@@ -1,14 +1,146 @@
-name: Deploy InsurFlow to Azure VM
+name: DevSecOps CI/CD Pipeline - InsurFlow
 
 on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
-  deploy:
-    name: Build & Deploy
+  # ===========================================================================
+  # 1. Code Quality & Automated Unit Tests
+  # ===========================================================================
+  quality-and-tests:
+    name: Code Quality & Unit Tests
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # ── Backend: Java 21 & Maven ───────────────────────────────────────────
+      - name: Set up JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Backend Unit Tests & Compilation
+        run: |
+          cd backend
+          mvn clean test
+
+      # ── Frontend: Node.js 20 & Next.js ─────────────────────────────────────
+      - name: Set up Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'frontend/package-lock.json'
+
+      - name: Install Frontend Dependencies
+        run: |
+          cd frontend
+          npm ci || npm install
+
+      - name: Run Frontend Linting (ESLint)
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Run Frontend TypeScript Typecheck
+        run: |
+          cd frontend
+          npm run typecheck
+
+  # ===========================================================================
+  # 2. Trivy Vulnerability, Secrets & Container Security Scan
+  # ===========================================================================
+  security-scan:
+    name: Trivy Security & Vulnerability Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # ── Repository & Filesystem Scan ───────────────────────────────────────
+      - name: Run Trivy Vulnerability & Secret Scan (Filesystem)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+          output: 'trivy-fs-report.txt'
+
+      - name: Generate Trivy SARIF Output
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      # ── Build Docker Images for Container Scanning ────────────────────────
+      - name: Build Application Docker Images
+        run: |
+          docker build -t insurflow-backend:scan ./backend
+          docker build --build-arg NEXT_PUBLIC_API_URL=/api -t insurflow-frontend:scan ./frontend
+
+      # ── Docker Image Scans ────────────────────────────────────────────────
+      - name: Scan Backend Docker Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'insurflow-backend:scan'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Scan Frontend Docker Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'insurflow-frontend:scan'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      - name: Scan Nginx Docker Image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'nginx:alpine'
+          format: 'table'
+          exit-code: '0'
+          severity: 'CRITICAL,HIGH'
+          ignore-unfixed: true
+
+      # ── Upload Scan Artifacts ─────────────────────────────────────────────
+      - name: Upload Trivy Security Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-security-reports
+          path: |
+            trivy-fs-report.txt
+            trivy-fs-results.sarif
+
+  # ===========================================================================
+  # 3. Gated Deployment to Azure VM
+  # ===========================================================================
+  deploy:
+    name: Deploy to Azure VM
+    needs: [quality-and-tests, security-scan]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+
     steps:
       - name: Deploy to Azure VM via SSH
         uses: appleboy/ssh-action@v1.0.3
