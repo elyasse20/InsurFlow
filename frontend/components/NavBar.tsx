@@ -62,22 +62,14 @@ export default function NavBar({ mobileOpen = false, onCloseMobile }: NavBarProp
         <Link
           href="/dashboard"
           onClick={handleLinkClick}
-          className="flex items-center gap-3 group cursor-pointer transition-all duration-150"
+          className="flex items-center group cursor-pointer"
         >
-          <div className="w-9 h-9 rounded-xl overflow-hidden shadow-md shadow-primary/20 border border-border/80 flex items-center justify-center bg-card flex-shrink-0 transition-transform duration-150 group-hover:scale-105">
+          <div className="h-9 flex items-center">
             <img
-              src="/icon.png"
-              alt="InsurFlow Logo"
-              className="w-full h-full object-contain p-0.5 rounded-lg"
+              src="/logo.png"
+              alt="InsurFlow"
+              className="h-8 w-auto object-contain transition-transform duration-150 group-hover:scale-[1.02]"
             />
-          </div>
-          <div>
-            <span className="text-foreground font-bold text-base leading-none group-hover:text-primary transition-colors">
-              InsurFlow
-            </span>
-            <p className="text-muted-foreground text-[10px] mt-0.5 font-medium uppercase tracking-wider">
-              Gestion Pro
-            </p>
           </div>
         </Link>
         {onCloseMobile && (
