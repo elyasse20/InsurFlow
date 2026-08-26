@@ -15,6 +15,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'InsurFlow — Gestion des Assurances',
   description: 'Système professionnel de gestion de courtage et d\'assurances',
+  icons: {
+    icon: '/icon.png',
+    shortcut: '/icon.png',
+    apple: '/icon.png',
+  },
 };
 
 // Script exécuté AVANT le premier paint pour éviter le flash de mauvais thème (FOUC).

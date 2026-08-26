@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -59,17 +60,30 @@ export default function NavBar({ mobileOpen = false, onCloseMobile }: NavBarProp
     <div className="flex flex-col h-full bg-card">
       {/* ── Logo & Mobile Close Button ────────────────────────────────────── */}
       <div className="h-16 flex items-center justify-between px-5 border-b border-border flex-shrink-0">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-primary rounded-xl flex items-center justify-center shadow-lg shadow-primary/30 flex-shrink-0">
-            <Shield className="text-white w-4 h-4" />
+        <Link
+          href="/dashboard"
+          onClick={handleLinkClick}
+          className="flex items-center gap-3 group cursor-pointer transition-all duration-150"
+        >
+          <div className="w-9 h-9 rounded-xl overflow-hidden shadow-md shadow-primary/20 border border-border/80 flex items-center justify-center bg-card flex-shrink-0 transition-transform duration-150 group-hover:scale-105">
+            <Image
+              src="/icon.png"
+              alt="InsurFlow"
+              width={36}
+              height={36}
+              className="w-full h-full object-contain p-0.5 rounded-lg"
+              priority
+            />
           </div>
           <div>
-            <span className="text-foreground font-bold text-base leading-none">InsurFlow</span>
+            <span className="text-foreground font-bold text-base leading-none group-hover:text-primary transition-colors">
+              InsurFlow
+            </span>
             <p className="text-muted-foreground text-[10px] mt-0.5 font-medium uppercase tracking-wider">
               Gestion Pro
             </p>
           </div>
-        </div>
+        </Link>
         {onCloseMobile && (
           <button
             onClick={onCloseMobile}
