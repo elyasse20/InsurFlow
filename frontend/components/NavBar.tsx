@@ -1,7 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/context/ThemeContext';
@@ -66,14 +65,10 @@ export default function NavBar({ mobileOpen = false, onCloseMobile }: NavBarProp
           className="flex items-center gap-3 group cursor-pointer transition-all duration-150"
         >
           <div className="w-9 h-9 rounded-xl overflow-hidden shadow-md shadow-primary/20 border border-border/80 flex items-center justify-center bg-card flex-shrink-0 transition-transform duration-150 group-hover:scale-105">
-            <Image
+            <img
               src="/icon.png"
-              alt="InsurFlow"
-              width={36}
-              height={36}
-              unoptimized
+              alt="InsurFlow Logo"
               className="w-full h-full object-contain p-0.5 rounded-lg"
-              priority
             />
           </div>
           <div>

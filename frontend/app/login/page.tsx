@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Image from 'next/image';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -46,15 +45,11 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="text-center mb-10">
           <div className="inline-flex flex-col items-center gap-4">
-            <div className="relative w-16 h-16 rounded-2xl overflow-hidden shadow-xl shadow-primary/20 flex items-center justify-center bg-slate-900/60 border border-slate-800/80">
-              <Image
+            <div className="w-16 h-16 rounded-2xl overflow-hidden shadow-xl shadow-primary/20 flex items-center justify-center bg-slate-900/60 border border-slate-800/80">
+              <img
                 src="/icon.png"
-                alt="InsurFlow"
-                width={64}
-                height={64}
-                unoptimized
-                className="w-full h-full object-contain rounded-2xl"
-                priority
+                alt="InsurFlow Logo"
+                className="w-full h-full object-contain rounded-2xl p-1"
               />
             </div>
             <div>
