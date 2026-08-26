@@ -58,16 +58,16 @@ export default function NavBar({ mobileOpen = false, onCloseMobile }: NavBarProp
   const navContent = (
     <div className="flex flex-col h-full bg-card">
       {/* ── Logo & Mobile Close Button ────────────────────────────────────── */}
-      <div className="h-20 flex items-center justify-center relative px-4 border-b border-border flex-shrink-0">
+      <div className="h-16 flex items-center justify-center px-4 border-b border-border flex-shrink-0 relative">
         <Link
           href="/dashboard"
           onClick={handleLinkClick}
-          className="flex items-center justify-center w-full group cursor-pointer transition-transform duration-150 group-hover:scale-105"
+          className="flex items-center justify-center group cursor-pointer transition-transform duration-150 group-hover:scale-105"
         >
           <img
             src="/logo.png"
             alt="InsurFlow"
-            className="h-12 w-auto max-w-[200px] object-contain"
+            className="h-10 w-auto max-w-[170px] object-contain"
           />
         </Link>
         {onCloseMobile && (
