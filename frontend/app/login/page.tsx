@@ -52,6 +52,7 @@ export default function LoginPage() {
                 alt="InsurFlow"
                 width={64}
                 height={64}
+                unoptimized
                 className="w-full h-full object-contain rounded-2xl"
                 priority
               />

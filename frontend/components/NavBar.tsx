@@ -71,6 +71,7 @@ export default function NavBar({ mobileOpen = false, onCloseMobile }: NavBarProp
               alt="InsurFlow"
               width={36}
               height={36}
+              unoptimized
               className="w-full h-full object-contain p-0.5 rounded-lg"
               priority
             />
