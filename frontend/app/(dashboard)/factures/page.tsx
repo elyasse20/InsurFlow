@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import api from '@/lib/api';
-import API_BASE_URL from '@/lib/config';
+import { downloadInvoicePdf } from '@/lib/export';
 import { Invoice } from '@/types';
 import {
   Download, Plus, Search, RefreshCw, X, Receipt
@@ -18,6 +18,7 @@ export default function FacturesPage() {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   // Modal for Proforma creation
   const [showProformaModal, setShowProformaModal] = useState<boolean>(false);
@@ -79,10 +80,17 @@ export default function FacturesPage() {
       .reduce((sum, i) => sum + i.amountTTC, 0)
   );
 
-  // Handle PDF view/download
-  const handleOpenPdf = (id: string) => {
-    const pdfUrl = `${API_BASE_URL}/invoices/${id}/pdf`;
-    window.open(pdfUrl, '_blank');
+  // Handle PDF download via Axios with JWT & blob responseType
+  const handleDownloadPdf = async (id: string, invoiceNumber?: string) => {
+    try {
+      setDownloadingId(id);
+      await downloadInvoicePdf(id, invoiceNumber);
+    } catch (err) {
+      console.error('Failed to download invoice PDF:', err);
+      alert('Erreur lors du téléchargement de la facture PDF');
+    } finally {
+      setDownloadingId(null);
+    }
   };
 
   // Handle Credit Note (Avoir) creation
@@ -309,13 +317,14 @@ export default function FacturesPage() {
                     <td className="py-3.5 px-4 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-2">
                         <Button
-                          onClick={() => handleOpenPdf(inv.id)}
+                          onClick={() => handleDownloadPdf(inv.id, inv.invoiceNumber)}
+                          disabled={downloadingId === inv.id}
                           size="sm"
                           variant="outline"
                           className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
                         >
-                          <Download className="w-3.5 h-3.5" />
-                          PDF
+                          <Download className={cn("w-3.5 h-3.5", downloadingId === inv.id && "animate-bounce")} />
+                          {downloadingId === inv.id ? 'PDF...' : 'PDF'}
                         </Button>
 
                         {inv.type === 'STANDARD' && (

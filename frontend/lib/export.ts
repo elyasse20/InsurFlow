@@ -6,6 +6,8 @@
  *  - Pure JS blob/CSV for Excel — no extra dependency needed
  */
 
+import api from '@/lib/api';
+
 export interface ExportColumn {
   header: string;
   key: string;
@@ -106,7 +108,7 @@ export async function exportToPDF(
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
-function downloadBlob(content: string, filename: string, mimeType: string): void {
+export function downloadBlob(content: BlobPart, filename: string, mimeType: string): void {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -116,4 +118,17 @@ function downloadBlob(content: string, filename: string, mimeType: string): void
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Downloads an invoice PDF via Axios with Bearer token & responseType blob.
+ */
+export async function downloadInvoicePdf(invoiceId: string, filename?: string): Promise<void> {
+  const res = await api.get(`/invoices/${invoiceId}/pdf`, {
+    responseType: 'blob',
+  });
+  const defaultName = filename
+    ? (filename.endsWith('.pdf') ? filename : `${filename}.pdf`)
+    : `facture-${invoiceId}.pdf`;
+  downloadBlob(res.data, defaultName, 'application/pdf');
 }

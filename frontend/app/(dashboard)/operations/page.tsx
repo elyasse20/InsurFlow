@@ -8,10 +8,9 @@ import {
   FileDown, FileSpreadsheet, Search, Receipt,
 } from 'lucide-react';
 import api from '@/lib/api';
-import API_BASE_URL from '@/lib/config';
 import { Production, Compagne, Category } from '@/types';
 import { formatMoisDem, formatAmount } from '@/lib/format';
-import { exportToCSV, exportToPDF, ExportColumn } from '@/lib/export';
+import { exportToCSV, exportToPDF, downloadInvoicePdf, ExportColumn } from '@/lib/export';
 import ExerciceSelector from '@/components/ExerciceSelector';
 import ClaimsAnalyzerModal from '@/components/ai/ClaimsAnalyzerModal';
 
@@ -408,12 +407,13 @@ export default function OperationsPage() {
                           onClick={async () => {
                             try {
                               const res = await api.post(`/invoices/generate/${prod.id}`);
-                              window.open(`${API_BASE_URL}/invoices/${res.data.id}/pdf`, '_blank');
-                            } catch {
+                              await downloadInvoicePdf(res.data.id, res.data.invoiceNumber);
+                            } catch (err) {
+                              console.error('Erreur lors du téléchargement de la facture:', err);
                               alert("Erreur lors de la génération de la facture PDF");
                             }
                           }}
-                          title="Voir / Télécharger Facture PDF"
+                          title="Télécharger Facture PDF"
                         >
                           <Receipt className="w-3.5 h-3.5" />
                         </Button>
