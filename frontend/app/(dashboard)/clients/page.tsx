@@ -87,6 +87,17 @@ export default function ClientsPage() {
 
   useEffect(() => { fetchClients(); }, [fetchClients]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('search');
+      if (q) {
+        setSearch(q);
+        fetchClients(q);
+      }
+    }
+  }, [fetchClients]);
+
   /* ── Handlers ──────────────────────────────────────────────────────────── */
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();

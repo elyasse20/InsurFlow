@@ -51,6 +51,13 @@ export default function FacturesPage() {
 
   useEffect(() => {
     fetchInvoices();
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('search');
+      if (q) {
+        setSearchTerm(q);
+      }
+    }
   }, []);
 
   // Filtered invoices

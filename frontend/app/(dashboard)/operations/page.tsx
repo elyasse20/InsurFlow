@@ -142,6 +142,17 @@ export default function OperationsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const q = params.get('search');
+      if (q) {
+        setSearch(q);
+        setShowFilters(true);
+      }
+    }
+  }, []);
+
   const handleDelete = async (id: string) => {
     await api.delete(`/productions/${id}`);
     setProductions(prev => prev.filter(p => p.id !== id));
