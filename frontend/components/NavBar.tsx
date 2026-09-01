@@ -139,8 +139,8 @@ export default function NavBar({ mobileOpen = false, onCloseMobile }: NavBarProp
               <p className="text-foreground text-sm font-semibold truncate">
                 {user?.username}
               </p>
-              <p className="text-muted-foreground text-xs truncate capitalize">
-                {user?.role?.toLowerCase()}
+              <p className="text-muted-foreground text-xs truncate">
+                {user?.role === 'ADMIN' ? 'Administrateur' : 'Opérateur'}
               </p>
             </div>
           </div>

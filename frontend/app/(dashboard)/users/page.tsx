@@ -39,7 +39,7 @@ const emptyForm: UserFormData = {
   username: '',
   email: '',
   password: '',
-  role: 'OPERATOR',
+  role: 'USER',
   enabled: true,
 };
 
@@ -82,7 +82,7 @@ export default function UsersPage() {
     const terms = q.split(/\s+/).filter(Boolean);
 
     return users.filter(u => {
-      const roleLabel = u.role === 'ADMIN' ? 'administrateur admin' : u.role === 'OPERATOR' ? 'opérateur operateur agent' : 'utilisateur user';
+      const roleLabel = u.role === 'ADMIN' ? 'administrateur admin' : 'opérateur operateur agent utilisateur user';
       const statusLabel = u.enabled ? 'actif active activé' : 'inactif inactive désactivé desactive';
 
       const searchTarget = `
@@ -118,7 +118,7 @@ export default function UsersPage() {
       username: u.username,
       email: u.email,
       password: '',
-      role: u.role,
+      role: u.role === 'ADMIN' ? 'ADMIN' : 'USER',
       enabled: u.enabled ?? true,
     });
     setError('');
@@ -469,7 +469,7 @@ export default function UsersPage() {
                 onChange={e => setFormData(p => ({ ...p, role: e.target.value as UserRole }))}
                 className="flex h-9 w-full rounded-lg border border-input bg-muted/30 px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground"
               >
-                <option value="OPERATOR" className="bg-card">Opérateur (accès standard)</option>
+                <option value="USER" className="bg-card">Opérateur (accès standard)</option>
                 <option value="ADMIN" className="bg-card">Administrateur (accès complet)</option>
               </select>
             </div>

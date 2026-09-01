@@ -49,8 +49,8 @@ export default function Header({ onToggleMobileNav }: HeaderProps) {
             <p className="font-semibold text-foreground leading-tight truncate max-w-[120px]">
               {user?.username || 'admin'}
             </p>
-            <p className="text-[10px] text-muted-foreground capitalize">
-              {user?.role?.toLowerCase() || 'Admin'}
+            <p className="text-[10px] text-muted-foreground">
+              {user?.role === 'ADMIN' ? 'Administrateur' : 'Opérateur'}
             </p>
           </div>
         </div>
