@@ -36,27 +36,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-screen bg-background w-full flex">
-      {/* ── Left Sidebar Navigation (Desktop fixed + Mobile drawer) ── */}
+    <div className="h-screen flex overflow-hidden bg-background w-full">
+      {/* ── Left Sidebar Navigation (Fixed h-screen) ─────────────────────── */}
       <NavBar
         mobileOpen={mobileNavOpen}
         onCloseMobile={() => setMobileNavOpen(false)}
       />
 
-      {/* ── Main Content Area with Persistent Sticky Header ─────────── */}
-      <div className="flex-1 lg:ml-64 ml-0 min-h-screen flex flex-col min-w-0 w-full">
-        {/* Sticky Header visible across all dashboard sub-routes */}
+      {/* ── Right Column: Fixed Header + Scrollable Main ────────────────── */}
+      <div className="flex-1 lg:ml-64 ml-0 flex flex-col h-screen min-w-0 overflow-hidden">
+        {/* Persistent Fixed Header */}
         <Header onToggleMobileNav={() => setMobileNavOpen(v => !v)} />
 
-        {/* Page Content Container */}
-        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 w-full min-w-0">
+        {/* Scrollable Main Content Container */}
+        <main className="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8 w-full min-w-0">
           <div className="max-w-7xl mx-auto w-full space-y-6 sm:space-y-8 min-w-0">
             {children}
           </div>
         </main>
       </div>
 
-      {/* ── Floating AI Copilot Assistant ──────────────────────────── */}
+      {/* ── Floating AI Copilot Assistant ──────────────────────────────── */}
       <CopilotWidget />
     </div>
   );

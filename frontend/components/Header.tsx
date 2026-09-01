@@ -27,7 +27,7 @@ export default function Header({ onToggleMobileNav }: HeaderProps) {
   };
 
   return (
-    <header className="h-16 border-b border-border bg-white/80 dark:bg-card/80 backdrop-blur-md px-3.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 w-full min-w-0 transition-colors">
+    <header className="h-16 flex-shrink-0 z-30 border-b border-border bg-white/90 dark:bg-card/90 backdrop-blur-md px-3.5 sm:px-6 flex items-center justify-between w-full min-w-0 transition-colors">
       {/* Left: Mobile Menu Hamburger & Search */}
       <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 max-w-md">
         {/* Mobile Hamburger Button */}
