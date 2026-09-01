@@ -91,13 +91,13 @@ public class Production {
      */
     @org.springframework.data.annotation.Transient
     public Integer getExercice() {
+        if (dateEff != null) {
+            return dateEff.getYear();
+        }
         if (moisDem != null && moisDem.length() >= 4) {
             try {
                 return Integer.parseInt(moisDem.substring(0, 4));
             } catch (NumberFormatException ignored) {}
-        }
-        if (dateEff != null) {
-            return dateEff.getYear();
         }
         if (createdAt != null) {
             return createdAt.getYear();

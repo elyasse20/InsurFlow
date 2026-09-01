@@ -16,11 +16,11 @@ export default function ExerciceSelector({
   className = '',
 }: ExerciceSelectorProps) {
   const currentYear = new Date().getFullYear();
-  
-  // Default range of years if none provided (e.g. 2023 to currentYear + 1)
+  // Default range of years including 2026, 2025, 2024, 2023
+  const defaultYears = [2026, 2025, 2024, 2023];
   const years = availableYears && availableYears.length > 0
-    ? Array.from(new Set([...availableYears, currentYear])).sort((a, b) => b - a)
-    : Array.from({ length: 5 }, (_, i) => currentYear + 1 - i);
+    ? Array.from(new Set([...availableYears, ...defaultYears, currentYear])).sort((a, b) => b - a)
+    : Array.from(new Set([...defaultYears, currentYear])).sort((a, b) => b - a);
 
   return (
     <div className={`inline-flex items-center gap-2 rounded-xl border border-primary/20 bg-card/80 px-3.5 py-1.5 shadow-sm backdrop-blur-sm ${className}`}>

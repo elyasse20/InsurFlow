@@ -49,9 +49,12 @@ public class DashboardStats {
     }
 
     @Data @Builder
+    @lombok.NoArgsConstructor
+    @lombok.AllArgsConstructor
     public static class LabelValue {
         private String label;
         private double value;
+        private Long count;
     }
 
     @Data @Builder

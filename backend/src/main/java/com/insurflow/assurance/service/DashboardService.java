@@ -96,18 +96,21 @@ public class DashboardService {
                 .collect(Collectors.toList());
 
         // ── By Month (12 months of the selected exercice year YYYY-01 to YYYY-12) ──
-        Map<String, Long> byMonthMap = new HashMap<>();
+        Map<String, Double> byMonthMontantMap = new HashMap<>();
+        Map<String, Long> byMonthCountMap = new HashMap<>();
+
         for (Production p : productions) {
             String monthKey = null;
-            if (p.getMoisDem() != null && p.getMoisDem().length() >= 7) {
-                monthKey = p.getMoisDem().substring(0, 7); // e.g. "2026-01"
-            } else if (p.getDateEff() != null) {
+            if (p.getDateEff() != null) {
                 monthKey = String.format("%04d-%02d", p.getDateEff().getYear(), p.getDateEff().getMonthValue());
+            } else if (p.getMoisDem() != null && p.getMoisDem().length() >= 7) {
+                monthKey = p.getMoisDem().substring(0, 7);
             } else if (p.getCreatedAt() != null) {
                 monthKey = String.format("%04d-%02d", p.getCreatedAt().getYear(), p.getCreatedAt().getMonthValue());
             }
             if (monthKey != null) {
-                byMonthMap.put(monthKey, byMonthMap.getOrDefault(monthKey, 0L) + 1);
+                byMonthCountMap.put(monthKey, byMonthCountMap.getOrDefault(monthKey, 0L) + 1);
+                byMonthMontantMap.put(monthKey, byMonthMontantMap.getOrDefault(monthKey, 0.0) + p.getMontantTotal());
             }
         }
 
@@ -116,7 +119,8 @@ public class DashboardService {
             String key = String.format("%04d-%02d", exercice, m);
             monthStats.add(DashboardStats.LabelValue.builder()
                     .label(key)
-                    .value(byMonthMap.getOrDefault(key, 0L))
+                    .value(Math.round(byMonthMontantMap.getOrDefault(key, 0.0) * 100.0) / 100.0)
+                    .count(byMonthCountMap.getOrDefault(key, 0L))
                     .build());
         }
 

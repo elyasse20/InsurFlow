@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   FileText, Users, TrendingUp, CreditCard, AlertCircle,
   CheckCircle2, Clock, BarChart2, ArrowRight, Building2,
 } from 'lucide-react';
 import api from '@/lib/api';
+import { cn } from '@/lib/utils';
 import { formatAmount, formatDate, formatMonthLabel } from '@/lib/format';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -15,7 +16,7 @@ import ExerciceSelector from '@/components/ExerciceSelector';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface CategoryStat { category: string; count: number; montant: number; }
-interface LabelValue   { label: string; value: number; }
+interface LabelValue   { label: string; value: number; count?: number; }
 interface RecentProd   {
   id: string; numpolice: string; client: string; category: string;
   compagne: string; montant: number; dateEff: string; reglementStatus?: string;
@@ -163,33 +164,172 @@ function DonutChart({ data }: { data: CategoryStat[] }) {
   );
 }
 
+interface MonthlyPoint {
+  monthIndex: number;
+  shortLabel: string;
+  fullLabel: string;
+  value: number;
+  count: number;
+}
+
 /** Vertical bar chart for monthly productions */
-function MonthlyBarChart({ data }: { data: LabelValue[] }) {
-  const max = Math.max(...data.map(d => d.value), 1);
+function MonthlyBarChart({ data, exercice }: { data: LabelValue[]; exercice: number }) {
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+
+  const MONTH_LABELS = [
+    { short: 'Janv.', full: 'Janvier' },
+    { short: 'Févr.', full: 'Février' },
+    { short: 'Mars',  full: 'Mars' },
+    { short: 'Avr.',  full: 'Avril' },
+    { short: 'Mai',   full: 'Mai' },
+    { short: 'Juin',  full: 'Juin' },
+    { short: 'Juil.', full: 'Juillet' },
+    { short: 'Août',  full: 'Août' },
+    { short: 'Sept.', full: 'Septembre' },
+    { short: 'Oct.',  full: 'Octobre' },
+    { short: 'Nov.',  full: 'Novembre' },
+    { short: 'Déc.',  full: 'Décembre' },
+  ];
+
+  // Group exactly 12 months for the selected exercice (Jan to Dec)
+  const monthlyPoints: MonthlyPoint[] = useMemo(() => {
+    return Array.from({ length: 12 }, (_, idx) => {
+      const mNum = idx + 1;
+      const mKey = `${exercice}-${String(mNum).padStart(2, '0')}`;
+      const item = data.find((d: LabelValue) => {
+        if (!d.label) return false;
+        if (d.label === mKey || d.label === String(mNum) || d.label.endsWith(`-${String(mNum).padStart(2, '0')}`)) return true;
+        const parsed = parseInt(d.label.split('-')[1] || d.label, 10);
+        return parsed === mNum;
+      });
+
+      return {
+        monthIndex: idx,
+        shortLabel: MONTH_LABELS[idx].short,
+        fullLabel: MONTH_LABELS[idx].full,
+        value: item ? item.value : 0,
+        count: item?.count ?? 0,
+      };
+    });
+  }, [data, exercice]);
+
+  const rawMax = Math.max(...monthlyPoints.map((p: MonthlyPoint) => p.value), 0);
+
+  // Dynamic Y-axis scale interval
+  const yMax = useMemo(() => {
+    if (rawMax <= 0) return 50000;
+    if (rawMax > 150000) return Math.ceil(rawMax / 50000) * 50000;
+    if (rawMax > 80000) return Math.ceil(rawMax / 25000) * 25000;
+    if (rawMax > 30000) return Math.ceil(rawMax / 10000) * 10000;
+    if (rawMax > 10000) return Math.ceil(rawMax / 5000) * 5000;
+    return Math.ceil(rawMax / 1000) * 1000;
+  }, [rawMax]);
+
+  const formatScaleTick = (n: number) => {
+    if (n >= 1000) return `${Math.round(n / 1000)}k DH`;
+    return `${Math.round(n)} DH`;
+  };
+
+  const yTicks = [yMax, yMax * 0.75, yMax * 0.50, yMax * 0.25, 0];
+
+  const totalYear = monthlyPoints.reduce((sum: number, p: MonthlyPoint) => sum + p.value, 0);
+  const totalOps = monthlyPoints.reduce((sum: number, p: MonthlyPoint) => sum + p.count, 0);
+
   return (
-    <div className="flex items-end gap-1 sm:gap-1.5 h-28 w-full overflow-x-auto pb-1">
-      {data.map((d, i) => {
-        const pct = (d.value / max) * 100;
-        const isThisMonth = i === data.length - 1;
-        return (
-          <div key={d.label} className="flex-1 min-w-[20px] flex flex-col items-center gap-1 group">
-            <div className="w-full flex-1 flex items-end">
-              <div
-                className="w-full rounded-t transition-all duration-500 ease-out"
-                style={{
-                  height: `${Math.max(pct, 2)}%`,
-                  backgroundColor: isThisMonth ? '#3b82f6' : 'hsl(var(--muted))',
-                  minHeight: '4px',
-                }}
-                title={`${d.value} opérations`}
-              />
-            </div>
-            <span className="text-[8px] sm:text-[9px] text-muted-foreground rotate-[-45deg] origin-center whitespace-nowrap overflow-hidden w-5 text-center leading-none">
-              {formatMonthLabel(d.label)}
-            </span>
+    <div className="space-y-4">
+      {/* Chart Top Metrics Summary */}
+      <div className="flex items-center justify-between gap-2 flex-wrap text-xs pb-1 border-b border-border/40">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 font-medium text-muted-foreground">
+            <span className="w-2.5 h-2.5 rounded-sm bg-gradient-to-tr from-primary to-sky-400 inline-block shadow-xs" />
+            <span>Volume TTC émis</span>
           </div>
-        );
-      })}
+          {totalOps > 0 && (
+            <span className="text-muted-foreground/80 font-medium">• {totalOps} opération(s)</span>
+          )}
+        </div>
+        <div className="text-right">
+          <span className="text-muted-foreground">Total Exercice {exercice} : </span>
+          <span className="font-bold text-foreground tabular-nums">{formatAmount(totalYear)}</span>
+        </div>
+      </div>
+
+      {/* Main Chart Canvas Area */}
+      <div className="relative min-h-[260px] h-64 sm:h-72 w-full flex flex-col justify-between pt-3">
+        {/* Horizontal grid lines & Y-axis ticks */}
+        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-8 pl-12 sm:pl-16">
+          {yTicks.map((tick: number, i: number) => (
+            <div key={i} className="w-full flex items-center gap-2">
+              <span className="absolute left-0 text-[10px] sm:text-[11px] font-mono text-muted-foreground/70 tabular-nums text-right w-10 sm:w-14">
+                {formatScaleTick(tick)}
+              </span>
+              <div className="w-full border-b border-dashed border-border/50" />
+            </div>
+          ))}
+        </div>
+
+        {/* 12 Month Bars Area */}
+        <div className="relative flex-1 flex items-end gap-1.5 sm:gap-2.5 pl-12 sm:pl-16 pb-8 z-10">
+          {monthlyPoints.map((point: MonthlyPoint, i: number) => {
+            const pct = yMax > 0 ? (point.value / yMax) * 100 : 0;
+            const isHovered = hoveredIndex === i;
+            const hasData = point.value > 0;
+
+            return (
+              <div
+                key={point.monthIndex}
+                className="flex-1 h-full flex flex-col justify-end items-center relative group cursor-pointer"
+                onMouseEnter={() => setHoveredIndex(i)}
+                onMouseLeave={() => setHoveredIndex(null)}
+              >
+                {/* Floating Tooltip */}
+                {isHovered && (
+                  <div className="absolute bottom-full mb-2 z-30 px-3 py-2 rounded-xl bg-popover/95 border border-border shadow-xl backdrop-blur-md text-popover-foreground text-xs whitespace-nowrap pointer-events-none animate-in fade-in-0 zoom-in-95 duration-150">
+                    <p className="font-bold text-primary">{point.fullLabel} {exercice}</p>
+                    <p className="font-mono font-semibold text-foreground mt-0.5">{formatAmount(point.value)}</p>
+                    {point.count > 0 && (
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{point.count} opération(s) enregistrée(s)</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Vertical Bar */}
+                <div className="w-full flex-1 flex items-end justify-center">
+                  <div
+                    className={cn(
+                      'w-full max-w-[28px] sm:max-w-[34px] rounded-t-md sm:rounded-t-lg transition-all duration-500 relative overflow-hidden',
+                      hasData
+                        ? 'bg-gradient-to-t from-primary/90 via-primary to-sky-400 shadow-sm group-hover:shadow-lg group-hover:shadow-primary/30 group-hover:from-primary group-hover:to-cyan-300'
+                        : 'bg-muted/20 border border-border/30'
+                    )}
+                    style={{
+                      height: `${Math.max(pct, hasData ? 4 : 2)}%`,
+                      minHeight: '4px',
+                    }}
+                  >
+                    {/* Top highlight glow */}
+                    {hasData && (
+                      <div className="absolute top-0 inset-x-0 h-1 bg-white/40 rounded-t-md" />
+                    )}
+                  </div>
+                </div>
+
+                {/* X-axis Month Label */}
+                <div className="absolute -bottom-7 inset-x-0 text-center">
+                  <span
+                    className={cn(
+                      'text-[10px] sm:text-xs transition-colors font-medium',
+                      isHovered ? 'text-primary font-bold' : hasData ? 'text-foreground' : 'text-muted-foreground/70'
+                    )}
+                  >
+                    {point.shortLabel}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -286,9 +426,9 @@ export default function DashboardPage() {
             </div>
           </div>
           {loading ? (
-            <Skeleton className="h-28 w-full rounded-lg" />
+            <Skeleton className="h-72 w-full rounded-lg" />
           ) : (
-            <MonthlyBarChart data={stats?.byMonth ?? []} />
+            <MonthlyBarChart data={stats?.byMonth ?? []} exercice={exercice} />
           )}
         </div>
 
