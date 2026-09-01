@@ -69,9 +69,14 @@ function TableSkeleton() {
     <>
       {Array.from({ length: 5 }).map((_, i) => (
         <TableRow key={i} className="hover:bg-transparent border-border/50">
-          {Array.from({ length: 8 }).map((_, j) => (
-            <TableCell key={j}><Skeleton className="h-4 w-full max-w-[120px]" /></TableCell>
-          ))}
+          <TableCell className="px-2.5 py-2.5"><Skeleton className="h-4 w-20" /></TableCell>
+          <TableCell className="px-2.5 py-2.5"><Skeleton className="h-4 w-28" /></TableCell>
+          <TableCell className="px-2.5 py-2.5"><Skeleton className="h-4 w-16" /></TableCell>
+          <TableCell className="px-2.5 py-2.5"><Skeleton className="h-4 w-20" /></TableCell>
+          <TableCell className="px-2.5 py-2.5"><Skeleton className="h-4 w-16" /></TableCell>
+          <TableCell className="px-2.5 py-2.5"><Skeleton className="h-4 w-16" /></TableCell>
+          <TableCell className="px-2.5 py-2.5 text-right"><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
+          <TableCell className="px-2 py-2 text-right"><Skeleton className="h-7 w-28 ml-auto rounded-lg" /></TableCell>
         </TableRow>
       ))}
     </>
@@ -365,17 +370,17 @@ export default function OperationsPage() {
       {/* Table with horizontal scroll */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto w-full">
-          <Table className="min-w-[820px]">
+          <Table className="w-full table-auto text-xs">
             <TableHeader>
               <TableRow className="hover:bg-transparent border-border/60">
-                <TableHead><div className="flex items-center gap-1.5"><Hash className="w-3 h-3" />Police</div></TableHead>
-                <TableHead>Client</TableHead>
-                <TableHead>Catégorie</TableHead>
-                <TableHead>Compagne</TableHead>
-                <TableHead><div className="flex items-center gap-1.5"><Calendar className="w-3 h-3" />Date Effet</div></TableHead>
-                <TableHead>Mois Dem</TableHead>
-                <TableHead className="text-right"><div className="flex items-center justify-end gap-1.5"><TrendingUp className="w-3 h-3" />Total TTC</div></TableHead>
-                <TableHead className="w-[120px] text-right">Actions</TableHead>
+                <TableHead className="h-9 px-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap"><div className="flex items-center gap-1.5"><Hash className="w-3 h-3" />Police</div></TableHead>
+                <TableHead className="h-9 px-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Client</TableHead>
+                <TableHead className="h-9 px-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Catégorie</TableHead>
+                <TableHead className="h-9 px-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Compagnie</TableHead>
+                <TableHead className="h-9 px-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground"><div className="flex items-center gap-1.5"><Calendar className="w-3 h-3" />Date Effet</div></TableHead>
+                <TableHead className="h-9 px-2.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Mois Dem</TableHead>
+                <TableHead className="h-9 px-2.5 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground"><div className="flex items-center justify-end gap-1.5"><TrendingUp className="w-3 h-3" />Total TTC</div></TableHead>
+                <TableHead className="h-9 px-2 text-right w-[140px] text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -397,36 +402,36 @@ export default function OperationsPage() {
                 </TableRow>
               ) : (
                 paginated.map(prod => (
-                  <TableRow key={prod.id} className="border-border/40 group">
-                    <TableCell>
-                      <span className="font-mono text-sm text-primary font-semibold">{prod.numpolice}</span>
+                  <TableRow key={prod.id} className="border-border/40 group hover:bg-muted/30 transition-colors">
+                    <TableCell className="px-2.5 py-2.5">
+                      <span className="font-mono text-xs text-primary font-semibold whitespace-nowrap">{prod.numpolice}</span>
                     </TableCell>
-                    <TableCell>
-                      <span className="text-sm font-medium text-foreground truncate max-w-[160px] block">{prod.client}</span>
+                    <TableCell className="px-2.5 py-2.5">
+                      <span className="text-xs font-medium text-foreground truncate max-w-[150px] block" title={prod.client}>{prod.client}</span>
                     </TableCell>
-                    <TableCell>
-                      <Badge variant="secondary" className="font-normal text-[11px]">{prod.category}</Badge>
+                    <TableCell className="px-2.5 py-2.5">
+                      <Badge variant="secondary" className="font-normal text-[10px] px-1.5 py-0.5 whitespace-nowrap">{prod.category}</Badge>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-2.5 py-2.5">
                       <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
-                        <Building2 className="w-3 h-3" />{prod.compagne}
+                        <Building2 className="w-3 h-3 flex-shrink-0" />{prod.compagne}
                       </div>
                     </TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{prod.dateEff?.slice(0, 10)}</TableCell>
-                    <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                    <TableCell className="px-2.5 py-2.5 text-xs text-muted-foreground whitespace-nowrap">{prod.dateEff?.slice(0, 10)}</TableCell>
+                    <TableCell className="px-2.5 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
                       {formatMoisDem(prod.moisDem)}
                     </TableCell>
-                    <TableCell className="text-right whitespace-nowrap">
-                      <span className="text-sm font-semibold text-green-400 tabular-nums">
+                    <TableCell className="px-2.5 py-2.5 text-right whitespace-nowrap">
+                      <span className="text-xs font-semibold text-green-400 tabular-nums">
                         {prodTotal(prod).toLocaleString('fr-MA')} DH
                       </span>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="px-2 py-2">
                       <div className="flex items-center justify-end gap-1">
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10"
+                          className="h-7 w-7 text-muted-foreground hover:text-blue-400 hover:bg-blue-500/10 flex-shrink-0"
                           onClick={async () => {
                             try {
                               const res = await api.post(`/invoices/generate/${prod.id}`);
@@ -440,7 +445,7 @@ export default function OperationsPage() {
                         >
                           <Receipt className="w-3.5 h-3.5" />
                         </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10"
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-amber-400 hover:bg-amber-500/10 flex-shrink-0"
                           onClick={() => router.push(`/regelements/${prod.id}`)} title="Règlement">
                           <CreditCard className="w-3.5 h-3.5" />
                         </Button>
@@ -450,17 +455,17 @@ export default function OperationsPage() {
                           initialCategory={prod.category}
                           triggerButtonVariant="ghost"
                           triggerButtonSize="icon"
-                          triggerButtonClassName="h-8 w-8 text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/10 cursor-pointer"
+                          triggerButtonClassName="h-7 w-7 text-muted-foreground hover:text-indigo-400 hover:bg-indigo-500/10 cursor-pointer flex-shrink-0"
                           triggerButtonText=""
                         />
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-primary hover:bg-primary/10 flex-shrink-0"
                           onClick={() => router.push(`/operations/${prod.id}/edit`)} title="Modifier">
                           <Edit2 className="w-3.5 h-3.5" />
                         </Button>
 
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10" title="Supprimer">
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 flex-shrink-0" title="Supprimer">
                               <Trash2 className="w-3.5 h-3.5" />
                             </Button>
                           </AlertDialogTrigger>
