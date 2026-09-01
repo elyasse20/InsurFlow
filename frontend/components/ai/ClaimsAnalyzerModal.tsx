@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Sparkles,
   ShieldAlert,
@@ -14,7 +14,10 @@ import {
   Check,
   Loader2,
   RotateCcw,
-  ChevronRight,
+  Building2,
+  Calendar,
+  AlertCircle,
+  FileCheck2,
 } from 'lucide-react';
 import {
   Dialog,
@@ -26,8 +29,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Combobox } from '@/components/ui/combobox';
+import api from '@/lib/api';
 import { analyzeClaim } from '@/lib/ai';
-import { ClaimAnalysisRequest, ClaimAnalysisResponse, FraudRiskLevel } from '@/types';
+import { formatAmount, formatDate } from '@/lib/format';
+import {
+  ClaimAnalysisRequest,
+  ClaimAnalysisResponse,
+  FraudRiskLevel,
+  Client,
+  Production,
+} from '@/types';
 
 interface ClaimsAnalyzerModalProps {
   initialClientName?: string;
@@ -39,57 +51,10 @@ interface ClaimsAnalyzerModalProps {
   triggerButtonSize?: 'default' | 'sm' | 'lg' | 'icon';
 }
 
-const PRESETS = [
-  {
-    id: 'carambolage',
-    title: 'Accident en chaîne autoroute',
-    category: 'AUTO',
-    damage: 18500,
-    deductible: 2000,
-    clientName: 'SARL Bâtiment Moderne',
-    policyNumber: 'POL-2026-CAS-0041',
-    dateSinistre: '2026-08-23',
-    text: "Autoroute Casablanca - Rabat, PK 45. Fort ralentissement dû à un bouchon. Le véhicule A (notre assuré) s'est arrêté normalement. Le véhicule B (tiers immatriculé 12345-A-6) n'a pas maîtrisé son freinage et a percuté violemment l'arrière du véhicule A, le projetant sur le véhicule C. Constat amiable signé avec mention choc arrière. Dégâts importants malle arrière et pare-chocs.",
-  },
-  {
-    id: 'parking_solo',
-    title: 'Accrochage parking sans tiers',
-    category: 'AUTO',
-    damage: 9200,
-    deductible: 1500,
-    clientName: 'Karim Benjelloun',
-    policyNumber: 'POL-2026-RA-0198',
-    dateSinistre: '2026-08-20',
-    text: "L'assuré déclare avoir retrouvé son véhicule avec une aile avant gauche et portière embouties sur le parking d'un supermarché à Marrakech. Aucun témoin, aucun tiers identifié. Contrat souscrit il y a 8 jours. L'assuré demande une prise en charge intégrale sans application de franchise.",
-  },
-  {
-    id: 'vol_effraction',
-    title: 'Vol partiel avec effraction',
-    category: 'AUTO',
-    damage: 24000,
-    deductible: 3000,
-    clientName: 'Société Atlas Transport',
-    policyNumber: 'POL-2026-TG-0842',
-    dateSinistre: '2026-08-18',
-    text: "Véhicule stationné de nuit devant le domicile de l'assuré à Tanger. Constat au matin : vitre latérale brisée, tableau de bord démonté, système multimédia GPS et volant dérobés. Plainte déposée au commissariat du 3ème arrondissement (PV N° 8492/2026 fourni).",
-  },
-  {
-    id: 'priorite',
-    title: 'Choc latéral refus de priorité',
-    category: 'AUTO',
-    damage: 14000,
-    deductible: 2500,
-    clientName: 'Mme Amina El Fassi',
-    policyNumber: 'POL-2026-FEZ-0312',
-    dateSinistre: '2026-08-22',
-    text: "Intersection Boulevard Zerktouni / Rue d'Anfa. Collision entre le véhicule A (notre assuré venant de droite) et le véhicule B venant d'une voie avec panneau 'Cédez le passage'. Le conducteur B conteste et affirme que notre assuré roulait à vive allure. Constat amiable non signé par la partie adverse, présence de la police de la circulation.",
-  },
-];
-
 export default function ClaimsAnalyzerModal({
   initialClientName = '',
   initialPolicyNumber = '',
-  initialCategory = 'AUTO',
+  initialCategory = 'AUTOMOBILE',
   triggerButtonClassName,
   triggerButtonText = 'Analyser Sinistre IA',
   triggerButtonVariant = 'outline',
@@ -99,35 +64,92 @@ export default function ClaimsAnalyzerModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Data sources
+  const [clients, setClients] = useState<Client[]>([]);
+  const [productions, setExistingProductions] = useState<Production[]>([]);
+  const [clientPolicies, setClientPolicies] = useState<Production[]>([]);
+
   // Form states
-  const [claimText, setClaimText] = useState(PRESETS[0].text);
-  const [clientName, setClientName] = useState(initialClientName || PRESETS[0].clientName);
-  const [policyNumber, setPolicyNumber] = useState(initialPolicyNumber || PRESETS[0].policyNumber);
-  const [incidentDate, setIncidentDate] = useState(PRESETS[0].dateSinistre);
+  const [clientName, setClientName] = useState(initialClientName);
+  const [policyNumber, setPolicyNumber] = useState(initialPolicyNumber);
+  const [incidentDate, setIncidentDate] = useState(new Date().toISOString().slice(0, 10));
   const [category, setCategory] = useState(initialCategory);
-  const [estimatedDamage, setEstimatedDamage] = useState<number>(PRESETS[0].damage);
-  const [deductible, setDeductible] = useState<number>(PRESETS[0].deductible);
+  const [estimatedDamage, setEstimatedDamage] = useState<number | string>(15000);
+  const [deductible, setDeductible] = useState<number | string>(2000);
+  const [claimText, setClaimText] = useState('');
 
   // Result state
   const [result, setResult] = useState<ClaimAnalysisResponse | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const handleApplyPreset = (preset: typeof PRESETS[0]) => {
-    setClaimText(preset.text);
-    setCategory(preset.category);
-    setEstimatedDamage(preset.damage);
-    setDeductible(preset.deductible);
-    if (preset.clientName) setClientName(preset.clientName);
-    if (preset.policyNumber) setPolicyNumber(preset.policyNumber);
-    if (preset.dateSinistre) setIncidentDate(preset.dateSinistre);
-    setResult(null);
-    setError(null);
+  // Load real clients & productions when modal opens
+  useEffect(() => {
+    if (open) {
+      Promise.all([
+        api.get<Client[]>('/clients'),
+        api.get<Production[]>('/productions'),
+      ])
+        .then(([clRes, prRes]) => {
+          setClients(clRes.data ?? []);
+          const allProds = prRes.data ?? [];
+          setExistingProductions(allProds);
+
+          // If initialClientName was passed, sync its policies
+          if (initialClientName) {
+            syncClientPolicies(initialClientName, allProds);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load clients/productions for claims analyzer:', err);
+        });
+    }
+  }, [open, initialClientName]);
+
+  const syncClientPolicies = (selectedName: string, allProds: Production[]) => {
+    if (!selectedName) {
+      setClientPolicies([]);
+      return;
+    }
+
+    const query = selectedName.toLowerCase().trim();
+    const matching = allProds.filter((p) => {
+      if (!p.client) return false;
+      const pClient = p.client.toLowerCase().trim();
+      return pClient === query || pClient.includes(query) || query.includes(pClient);
+    });
+
+    setClientPolicies(matching);
+
+    if (matching.length === 1) {
+      // Exactly 1 policy: auto-fill
+      setPolicyNumber(matching[0].numpolice);
+      if (matching[0].category) setCategory(matching[0].category);
+    } else if (matching.length > 1) {
+      // Multiple policies: set the first one or keep current if valid
+      const exists = matching.some((p) => p.numpolice === policyNumber);
+      if (!exists) {
+        setPolicyNumber(matching[0].numpolice);
+        if (matching[0].category) setCategory(matching[0].category);
+      }
+    }
   };
 
+  const handleClientChange = (selectedName: string) => {
+    setClientName(selectedName);
+    syncClientPolicies(selectedName, productions);
+  };
+
+  const handlePolicyChange = (selectedPolicy: string) => {
+    setPolicyNumber(selectedPolicy);
+    const prod = clientPolicies.find((p) => p.numpolice === selectedPolicy);
+    if (prod?.category) {
+      setCategory(prod.category);
+    }
+  };
 
   const handleAnalyze = async () => {
     if (!claimText.trim()) {
-      setError('Veuillez saisir ou coller la déclaration de sinistre.');
+      setError('Veuillez saisir ou coller les circonstances du constat / déclaration de sinistre.');
       return;
     }
 
@@ -139,7 +161,7 @@ export default function ClaimsAnalyzerModal({
       clientName: clientName.trim() || undefined,
       policyNumber: policyNumber.trim() || undefined,
       incidentDate: incidentDate || undefined,
-      category: category || 'AUTO',
+      category: category || 'AUTOMOBILE',
       estimatedDamage: Number(estimatedDamage) || undefined,
       deductible: Number(deductible) || undefined,
     };
@@ -155,29 +177,49 @@ export default function ClaimsAnalyzerModal({
     }
   };
 
+  const handleReset = () => {
+    setClaimText('');
+    setResult(null);
+    setError(null);
+    setEstimatedDamage(15000);
+    setDeductible(2000);
+    if (!initialClientName) {
+      setClientName('');
+      setPolicyNumber('');
+      setClientPolicies([]);
+    }
+  };
+
   const handleCopyReport = async () => {
     if (!result) return;
 
-    const reportText = `=== RAPPORT D'ANALYSE SINISTRE IA (InsurFlow Copilot) ===
-Client: ${clientName} | Police: ${policyNumber} | Date: ${incidentDate}
-Niveau de Risque Fraude: ${result.fraudRiskLevel} (Score: ${result.fraudRiskScore}/100)
+    const reportText = `=== RAPPORT D'EXPERTISE SINISTRE IA (InsurFlow Copilot) ===
+Client / Assuré : ${clientName || 'N/A'}
+N° Police       : ${policyNumber || 'N/A'}
+Date Sinistre   : ${formatDate(incidentDate)}
+Catégorie       : ${category}
 
-1. RÉSUMÉ EXÉCUTIF
-${result.executiveSummary}
+1. NIVEAU DE SUSPICION DE FRAUDE
+• Indice de Risque : ${result.fraudRiskLevel} (Score: ${result.fraudRiskScore}/100)
 
-2. ÉVALUATION RESPONSABILITÉ & BARÈME ACAPS
+2. QUALIFICATION DE LA RESPONSABILITÉ (ACAPS / CISA)
 ${result.liabilityAssessment}
 
-3. DÉCOMPOSITION FINANCIÈRE
-• Dommages estimés: ${result.financialBreakdown?.estimatedDamage?.toLocaleString('fr-MA')} MAD
-• Franchise déduite: - ${result.financialBreakdown?.deductible?.toLocaleString('fr-MA')} MAD
-• Indemnité nette estimée: ${result.financialBreakdown?.netPayout?.toLocaleString('fr-MA')} MAD
+3. DÉCOMPTE FINANCIER NET
+• Dommages Estimés       : ${formatAmount(result.financialBreakdown?.estimatedDamage ?? 0)}
+• Franchise Contractuelle : - ${formatAmount(result.financialBreakdown?.deductible ?? 0)}
+• Indemnité Nette Estimée : ${formatAmount(result.financialBreakdown?.netPayout ?? 0)}
+${result.financialBreakdown?.notes ? `  (${result.financialBreakdown.notes})` : ''}
 
-4. INDICATEURS D'ALERTE / FRAUDE
-${result.riskFlags?.map((f) => `• ${f}`).join('\n') || 'Aucun'}
+4. ANOMALIES LÉGALES & INDICATEURS D'ALERTE (LOI N° 17-99)
+${result.riskFlags?.map((f) => `• ${f}`).join('\n') || 'Aucune anomalie critique détectée.'}
 
-5. ACTIONS RECOMMANDÉES
-${result.recommendedActions?.map((a) => `[ ] ${a}`).join('\n') || 'Aucune'}`;
+5. PLAN D'ACTIONS RECOMMANDÉ (GESTIONNAIRE SINISTRE)
+${result.recommendedActions?.map((a, i) => `${i + 1}. ${a}`).join('\n') || 'Aucune action particulière.'}
+
+6. RÉSUMÉ EXÉCUTIF DU DOSSIER
+${result.executiveSummary}
+==========================================================`;
 
     try {
       if (typeof navigator !== 'undefined' && navigator.clipboard && typeof window !== 'undefined' && window.isSecureContext) {
@@ -204,41 +246,53 @@ ${result.recommendedActions?.map((a) => `[ ] ${a}`).join('\n') || 'Aucune'}`;
   const getRiskBadge = (level: FraudRiskLevel, score: number) => {
     if (level === 'FAIBLE') {
       return (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-500">
-          <ShieldCheck className="w-5 h-5 flex-shrink-0" />
+        <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+          <ShieldCheck className="w-5 h-5 flex-shrink-0 text-emerald-500" />
           <div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <span className="font-bold text-xs">Risque Faible</span>
-              <span className="text-[11px] font-mono opacity-80">({score}/100)</span>
+              <span className="text-[11px] font-mono font-bold bg-emerald-500/20 px-1.5 py-0.2 rounded">
+                Score: {score}/100
+              </span>
             </div>
-            <p className="text-[10px] text-emerald-600/80 dark:text-emerald-400/80">Cinématique cohérente • Dossier conforme</p>
+            <p className="text-[10px] text-emerald-700 dark:text-emerald-300 opacity-90 mt-0.5">
+              Cinématique cohérente • Dossier conforme
+            </p>
           </div>
         </div>
       );
     }
     if (level === 'MOYEN') {
       return (
-        <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-500">
-          <AlertTriangle className="w-5 h-5 flex-shrink-0" />
+        <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 text-amber-500" />
           <div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               <span className="font-bold text-xs">Risque Modéré</span>
-              <span className="text-[11px] font-mono opacity-80">({score}/100)</span>
+              <span className="text-[11px] font-mono font-bold bg-amber-500/20 px-1.5 py-0.2 rounded">
+                Score: {score}/100
+              </span>
             </div>
-            <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80">Vérifications d&apos;usage recommandées</p>
+            <p className="text-[10px] text-amber-700 dark:text-amber-300 opacity-90 mt-0.5">
+              Vérifications d&apos;usage recommandées
+            </p>
           </div>
         </div>
       );
     }
     return (
-      <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive">
-        <ShieldAlert className="w-5 h-5 flex-shrink-0" />
+      <div className="flex items-center gap-2.5 px-3.5 py-2 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive">
+        <ShieldAlert className="w-5 h-5 flex-shrink-0 text-destructive" />
         <div>
-          <div className="flex items-center gap-1.5">
-            <span className="font-bold text-xs">Alerte Fraude Élevée</span>
-            <span className="text-[11px] font-mono opacity-80">({score}/100)</span>
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-xs">Suspicion Élevée</span>
+            <span className="text-[11px] font-mono font-bold bg-destructive/20 px-1.5 py-0.2 rounded">
+              Score: {score}/100
+            </span>
           </div>
-          <p className="text-[10px] text-destructive/80">Anomalies critiques • Expertise approfondie requise</p>
+          <p className="text-[10px] text-destructive/90 mt-0.5">
+            Anomalies critiques • Expertise contradictoire requise
+          </p>
         </div>
       </div>
     );
@@ -260,165 +314,184 @@ ${result.recommendedActions?.map((a) => `[ ] ${a}`).join('\n') || 'Aucune'}`;
         </Button>
       </DialogTrigger>
 
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0 gap-0 rounded-2xl bg-card border-border/80 shadow-2xl">
+      <DialogContent className="max-w-4xl max-h-[92vh] overflow-y-auto p-0 gap-0 rounded-2xl bg-card border-border/80 shadow-2xl">
         {/* Header */}
         <div className="p-5 border-b border-border bg-gradient-to-r from-primary/10 via-indigo-500/5 to-transparent flex items-start justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-primary-foreground shadow-md shadow-primary/20 flex-shrink-0">
-              <Sparkles className="w-5 h-5 animate-pulse" />
+              <Sparkles className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <DialogTitle className="text-base sm:text-lg font-bold text-foreground">
-                  InsurFlow Claims AI Analyzer
+                  Analyse Intelligente des Sinistres
                 </DialogTitle>
                 <Badge variant="outline" className="text-[10px] border-primary/30 text-primary bg-primary/10 font-semibold">
-                  ACAPS & Loi 17-99
+                  Barème ACAPS / CISA & Loi 17-99
                 </Badge>
               </div>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Résumé intelligent des déclarations de sinistres, détermination des responsabilités & indicateurs de fraude.
+                Audit automatique des déclarations de sinistre, détection de fraude et détermination des responsabilités.
               </p>
             </div>
           </div>
         </div>
 
         <div className="p-5 sm:p-6 space-y-6">
-          {/* Preset Quick Chips */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-primary" />
-                Modèles de sinistres pré-remplis pour test :
-              </span>
-              <span className="text-[11px] text-muted-foreground">Cliquez pour charger</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {PRESETS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => handleApplyPreset(preset)}
-                  className="p-2.5 rounded-xl border border-border/70 bg-card hover:bg-muted/40 hover:border-primary/40 text-left transition-all text-xs group cursor-pointer shadow-2xs"
-                >
-                  <p className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                    {preset.title}
-                  </p>
-                  <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
-                    <span>{preset.damage.toLocaleString('fr-MA')} MAD</span>
-                    <ChevronRight className="w-3 h-3 text-muted-foreground group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Input Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2 space-y-2">
+          {/* Main Input Grid */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* Left: Constat / Déclaration Textarea (min-h-[160px]) */}
+            <div className="lg:col-span-2 space-y-2">
               <Label htmlFor="claim-text" className="text-xs font-semibold text-foreground flex items-center justify-between">
-                <span>Déclaration / Constat Amiable / Rapport d&apos;accident :</span>
+                <span className="flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5 text-primary" />
+                  Constat Amiable / Déclaration du Sinistre :
+                </span>
                 <span className="text-[11px] text-muted-foreground font-normal">
-                  {claimText.length} caractères
+                  {claimText.length} caractère(s)
                 </span>
               </Label>
               <textarea
                 id="claim-text"
-                rows={5}
                 value={claimText}
                 onChange={(e) => setClaimText(e.target.value)}
-                placeholder="Collez ici les observations du constat amiable, les circonstances, les tiers impliqués, le lieu et l'heure de l'accident..."
-                className="w-full rounded-xl border border-input bg-muted/20 p-3 text-xs sm:text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0 placeholder:text-muted-foreground leading-relaxed resize-y"
+                placeholder="Exemple : Véhicule A arrêté au feu rouge. Le véhicule B venant de l'arrière n'a pas freiné et a percuté violemment le pare-chocs arrière. Constat amiable signé avec case 'choc arrière' cochée pour le tiers. Dégâts estimés à 18 500 DH..."
+                className="w-full min-h-[160px] rounded-xl border border-input bg-muted/20 p-3.5 text-xs sm:text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-0 placeholder:text-muted-foreground leading-relaxed resize-y shadow-xs"
               />
             </div>
 
-            <div className="space-y-3 bg-muted/20 p-3.5 rounded-xl border border-border/70 text-xs">
-              <div>
-                <Label htmlFor="client-name" className="text-[11px] text-muted-foreground">Client / Assuré</Label>
-                <Input
-                  id="client-name"
+            {/* Right: Client / Policy / Financial parameters */}
+            <div className="space-y-3.5 bg-muted/20 p-4 rounded-xl border border-border/70 text-xs">
+              {/* 1. Client searchable combobox */}
+              <div className="space-y-1.5">
+                <Label htmlFor="client-select" className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                  <Building2 className="w-3 h-3 text-primary" />
+                  Client / Assuré
+                </Label>
+                <Combobox
+                  options={clients.map((c) => {
+                    const label = c.type === 'particulier' && c.prenom ? `${c.prenom} ${c.nom}` : c.nom;
+                    return { value: c.nom, label };
+                  })}
                   value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  className="h-8 text-xs mt-1 bg-card"
-                  placeholder="Nom de l'assuré"
+                  onChange={handleClientChange}
+                  placeholder="Rechercher un client..."
+                  emptyText="Aucun client trouvé."
+                  className="bg-card"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label htmlFor="policy-no" className="text-[11px] text-muted-foreground">N° Police</Label>
+              {/* 2. N° Police: dynamic dropdown if multiple, auto-filled if single, editable input if manual */}
+              <div className="space-y-1.5">
+                <Label htmlFor="policy-select" className="text-[11px] font-semibold text-foreground flex items-center justify-between">
+                  <span className="flex items-center gap-1">
+                    <FileCheck2 className="w-3 h-3 text-primary" />
+                    N° Police
+                  </span>
+                  {clientPolicies.length > 1 && (
+                    <span className="text-[10px] text-primary font-medium">
+                      ({clientPolicies.length} contrats)
+                    </span>
+                  )}
+                </Label>
+
+                {clientPolicies.length > 1 ? (
+                  <select
+                    id="policy-select"
+                    value={policyNumber}
+                    onChange={(e) => handlePolicyChange(e.target.value)}
+                    className="flex h-9 w-full rounded-lg border border-input bg-card px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-foreground font-mono"
+                  >
+                    <option value="">-- Choisir une police du client --</option>
+                    {clientPolicies.map((p) => (
+                      <option key={p.id} value={p.numpolice}>
+                        {p.numpolice} — {p.compagne} ({p.category})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
                   <Input
-                    id="policy-no"
+                    id="policy-input"
                     value={policyNumber}
                     onChange={(e) => setPolicyNumber(e.target.value)}
-                    className="h-8 text-xs mt-1 bg-card"
-                    placeholder="POL-2026-..."
+                    placeholder="ex: POL-SANLAM-2026-001"
+                    className="h-9 text-xs bg-card font-mono"
                   />
-                </div>
-                <div>
-                  <Label htmlFor="incident-date" className="text-[11px] text-muted-foreground">Date Sinistre</Label>
-                  <Input
-                    id="incident-date"
-                    type="date"
-                    value={incidentDate}
-                    onChange={(e) => setIncidentDate(e.target.value)}
-                    className="h-8 text-xs mt-1 bg-card"
-                  />
-                </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label htmlFor="est-damage" className="text-[11px] text-muted-foreground">Dommages (MAD)</Label>
+              {/* 3. Date du sinistre (format JJ/MM/AAAA) */}
+              <div className="space-y-1.5">
+                <Label htmlFor="incident-date" className="text-[11px] font-semibold text-foreground flex items-center gap-1">
+                  <Calendar className="w-3 h-3 text-primary" />
+                  Date du sinistre (JJ/MM/AAAA)
+                </Label>
+                <Input
+                  id="incident-date"
+                  type="date"
+                  value={incidentDate}
+                  onChange={(e) => setIncidentDate(e.target.value)}
+                  className="h-9 text-xs bg-card"
+                />
+              </div>
+
+              {/* 4. Dommages estimés & Franchise */}
+              <div className="grid grid-cols-2 gap-2.5 pt-1">
+                <div className="space-y-1">
+                  <Label htmlFor="est-damage" className="text-[10px] text-muted-foreground">
+                    Dommages (MAD)
+                  </Label>
                   <Input
                     id="est-damage"
                     type="number"
+                    min="0"
+                    step="100"
                     value={estimatedDamage}
-                    onChange={(e) => setEstimatedDamage(Number(e.target.value))}
-                    className="h-8 text-xs mt-1 bg-card"
+                    onChange={(e) => setEstimatedDamage(e.target.value)}
+                    className="h-8 text-xs bg-card"
                   />
                 </div>
-                <div>
-                  <Label htmlFor="deductible" className="text-[11px] text-muted-foreground">Franchise (MAD)</Label>
+                <div className="space-y-1">
+                  <Label htmlFor="deductible" className="text-[10px] text-muted-foreground">
+                    Franchise (MAD)
+                  </Label>
                   <Input
                     id="deductible"
                     type="number"
+                    min="0"
+                    step="100"
                     value={deductible}
-                    onChange={(e) => setDeductible(Number(e.target.value))}
-                    className="h-8 text-xs mt-1 bg-card"
+                    onChange={(e) => setDeductible(e.target.value)}
+                    className="h-8 text-xs bg-card"
                   />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Action Trigger Button */}
-          <div className="flex items-center justify-between pt-2">
+          {/* Action Trigger Buttons */}
+          <div className="flex items-center justify-between pt-1 border-t border-border/40">
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setClaimText('');
-                setResult(null);
-                setError(null);
-              }}
-              className="text-xs text-muted-foreground hover:text-foreground gap-1"
+              onClick={handleReset}
+              className="text-xs text-muted-foreground hover:text-foreground gap-1.5"
             >
               <RotateCcw className="w-3.5 h-3.5" />
-              <span>Réinitialiser</span>
+              <span>Effacer / Réinitialiser</span>
             </Button>
 
             <Button
               type="button"
               onClick={handleAnalyze}
               disabled={loading || !claimText.trim()}
-              className="gap-2 rounded-xl bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-600/90 text-primary-foreground shadow-md shadow-primary/20 px-5 cursor-pointer"
+              className="gap-2 rounded-xl bg-gradient-to-r from-primary to-indigo-600 hover:from-primary/90 hover:to-indigo-600/90 text-primary-foreground shadow-md shadow-primary/20 px-5 h-10 cursor-pointer font-semibold text-xs sm:text-sm"
             >
               {loading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Analyse IA en cours...</span>
+                  <span>Analyse du sinistre en cours...</span>
                 </>
               ) : (
                 <>
@@ -431,7 +504,7 @@ ${result.recommendedActions?.map((a) => `[ ] ${a}`).join('\n') || 'Aucune'}`;
 
           {error && (
             <div className="p-3 rounded-xl bg-destructive/10 border border-destructive/30 text-destructive text-xs flex items-center gap-2">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
               <span>{error}</span>
             </div>
           )}
@@ -442,12 +515,15 @@ ${result.recommendedActions?.map((a) => `[ ] ${a}`).join('\n') || 'Aucune'}`;
               {/* Header Status & Copy Button */}
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 rounded-2xl bg-muted/30 border border-border/80">
                 <div>
-                  <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Résultat de l&apos;évaluation IA
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Résultat de l&apos;Expertise Sinistre IA
                   </span>
                   <h4 className="text-sm font-bold text-foreground mt-0.5">
-                    Dossier Sinistre : {policyNumber || 'POL-SN'} — {clientName || 'Assuré'}
+                    Dossier : {policyNumber || 'POL-REF'} — {clientName || 'Assuré'}
                   </h4>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Date du sinistre : {formatDate(incidentDate)}
+                  </p>
                 </div>
 
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-end">
@@ -477,52 +553,41 @@ ${result.recommendedActions?.map((a) => `[ ] ${a}`).join('\n') || 'Aucune'}`;
 
               {/* Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* 1. Résumé Exécutif */}
-                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2">
-                  <div className="flex items-center gap-2 text-primary font-semibold text-xs">
-                    <FileText className="w-4 h-4" />
-                    <span>Résumé Exécutif & Circonstances</span>
-                  </div>
-                  <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                    {result.executiveSummary}
-                  </div>
-                </div>
-
-                {/* 2. Responsabilité & ACAPS */}
-                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2">
+                {/* 1. Qualification de la Responsabilité (Barème ACAPS / CISA) */}
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2.5">
                   <div className="flex items-center gap-2 text-indigo-500 font-semibold text-xs">
                     <Scale className="w-4 h-4" />
-                    <span>Évaluation Responsabilité (Barème ACAPS & Loi 17-99)</span>
+                    <span>Qualification de la Responsabilité (Barème ACAPS / CISA)</span>
                   </div>
-                  <p className="text-xs text-foreground font-medium leading-relaxed">
+                  <div className="p-3 rounded-xl bg-indigo-500/5 border border-indigo-500/20 text-xs text-foreground font-medium leading-relaxed">
                     {result.liabilityAssessment}
-                  </p>
+                  </div>
                 </div>
 
-                {/* 3. Décomposition Financière */}
+                {/* 2. Décompte Financier Net */}
                 <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2.5">
                   <div className="flex items-center gap-2 text-emerald-500 font-semibold text-xs">
                     <DollarSign className="w-4 h-4" />
-                    <span>Chiffrage Financier & Règlements</span>
+                    <span>Décompte Financier Net</span>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-2 pt-1 text-center">
-                    <div className="p-2 rounded-xl bg-muted/40 border border-border/60">
-                      <p className="text-[10px] text-muted-foreground">Dommages Estimés</p>
-                      <p className="text-xs font-bold text-foreground mt-0.5">
-                        {result.financialBreakdown?.estimatedDamage?.toLocaleString('fr-MA')} MAD
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-medium">Dommages Estimés</p>
+                      <p className="text-xs font-bold text-foreground mt-0.5 tabular-nums">
+                        {formatAmount(result.financialBreakdown?.estimatedDamage ?? 0)}
                       </p>
                     </div>
-                    <div className="p-2 rounded-xl bg-muted/40 border border-border/60">
-                      <p className="text-[10px] text-muted-foreground">Franchise Déduite</p>
-                      <p className="text-xs font-bold text-destructive mt-0.5">
-                        - {result.financialBreakdown?.deductible?.toLocaleString('fr-MA')} MAD
+                    <div className="p-2.5 rounded-xl bg-muted/40 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-medium">Franchise Déduite</p>
+                      <p className="text-xs font-bold text-destructive mt-0.5 tabular-nums">
+                        - {formatAmount(result.financialBreakdown?.deductible ?? 0)}
                       </p>
                     </div>
-                    <div className="p-2 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
-                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">Indemnité Nette</p>
-                      <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">
-                        {result.financialBreakdown?.netPayout?.toLocaleString('fr-MA')} MAD
+                    <div className="p-2.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30">
+                      <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Indemnité Nette</p>
+                      <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 mt-0.5 tabular-nums">
+                        {formatAmount(result.financialBreakdown?.netPayout ?? 0)}
                       </p>
                     </div>
                   </div>
@@ -533,48 +598,67 @@ ${result.recommendedActions?.map((a) => `[ ] ${a}`).join('\n') || 'Aucune'}`;
                   )}
                 </div>
 
-                {/* 4. Indicateurs d'Alerte / Fraude */}
-                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2">
+                {/* 3. Anomalies Légales & Indicateurs de Risque (Loi 17-99) */}
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2.5">
                   <div className="flex items-center gap-2 text-amber-500 font-semibold text-xs">
                     <ShieldAlert className="w-4 h-4" />
-                    <span>Indicateurs d&apos;Alerte ({result.riskFlags?.length || 0})</span>
+                    <span>Anomalies Légales & Alertes Détectées</span>
                   </div>
 
                   {result.riskFlags && result.riskFlags.length > 0 ? (
                     <div className="space-y-1.5">
                       {result.riskFlags.map((flag, idx) => (
-                        <div key={idx} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                        <div key={idx} className="flex items-start gap-2 p-2 rounded-lg bg-amber-500/5 border border-amber-500/20 text-xs text-foreground">
                           <span className="text-amber-500 font-bold">•</span>
                           <span>{flag}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground">Aucune anomalie détectée sur ce dossier.</p>
+                    <p className="text-xs text-muted-foreground p-2 bg-muted/20 rounded-lg">
+                      Aucune anomalie critique détectée.
+                    </p>
+                  )}
+                </div>
+
+                {/* 4. Actions Recommandées (Gestionnaire Sinistre) */}
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2.5">
+                  <div className="flex items-center gap-2 text-primary font-semibold text-xs">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Actions Recommandées pour le Gestionnaire</span>
+                  </div>
+
+                  {result.recommendedActions && result.recommendedActions.length > 0 ? (
+                    <div className="space-y-1.5">
+                      {result.recommendedActions.map((action, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-2 p-2 rounded-lg bg-primary/5 border border-primary/20 text-xs text-foreground"
+                        >
+                          <span className="w-4 h-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
+                            {idx + 1}
+                          </span>
+                          <span>{action}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground p-2 bg-muted/20 rounded-lg">
+                      Aucune action spécifique requise.
+                    </p>
                   )}
                 </div>
               </div>
 
-              {/* 5. Plan d'Actions Recommandé */}
-              {result.recommendedActions && result.recommendedActions.length > 0 && (
-                <div className="p-4 rounded-2xl bg-gradient-to-r from-primary/5 via-indigo-500/5 to-transparent border border-primary/20 space-y-2.5">
-                  <div className="flex items-center gap-2 text-primary font-semibold text-xs">
-                    <CheckCircle2 className="w-4 h-4" />
-                    <span>Actions Recommandées pour le Gestionnaire Sinistres</span>
+              {/* 5. Résumé Exécutif & Circonstances */}
+              {result.executiveSummary && (
+                <div className="p-4 rounded-2xl bg-card border border-border/80 shadow-2xs space-y-2">
+                  <div className="flex items-center gap-2 text-muted-foreground font-semibold text-xs">
+                    <FileText className="w-4 h-4 text-primary" />
+                    <span>Résumé Exécutif & Circonstances du Sinistre</span>
                   </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    {result.recommendedActions.map((action, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-start gap-2 p-2.5 rounded-xl bg-card border border-border/60 text-xs text-foreground"
-                      >
-                        <span className="w-4 h-4 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold flex-shrink-0 mt-0.5">
-                          {idx + 1}
-                        </span>
-                        <span>{action}</span>
-                      </div>
-                    ))}
+                  <div className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap p-3 rounded-xl bg-muted/20 border border-border/60">
+                    {result.executiveSummary}
                   </div>
                 </div>
               )}
