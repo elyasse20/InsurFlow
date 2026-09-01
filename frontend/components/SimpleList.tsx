@@ -17,6 +17,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import Pagination from '@/components/Pagination';
 
 export interface ExtraField {
   key: string;
@@ -59,6 +60,10 @@ export default function SimpleList({
   const [newExtra, setNewExtra] = useState<Record<string, string>>({});
   const [error, setError] = useState('');
   const [saveError, setSaveError] = useState('');
+
+  // ── Pagination state ──────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const fetchAll = async () => {
     setLoading(true);
@@ -134,6 +139,17 @@ export default function SimpleList({
     setItems(prev => prev.filter(i => i.id !== id));
     refreshData();
   };
+
+  // ── Pagination calculations ───────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedItems = items.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -255,7 +271,7 @@ export default function SimpleList({
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map(item => (
+                paginatedItems.map(item => (
                   <TableRow key={item.id} className="border-border/40 group">
                     <TableCell>
                       {editingId === item.id ? (
@@ -343,6 +359,23 @@ export default function SimpleList({
           </Table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && items.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={items.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 25, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemLabel={itemLabel ? `${itemLabel}s` : 'éléments'}
+        />
+      )}
     </div>
   );
 }

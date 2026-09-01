@@ -25,6 +25,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import Pagination from '@/components/Pagination';
 
 interface UserFormData {
   username: string;
@@ -53,6 +54,10 @@ export default function UsersPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+
+  // ── Pagination state ──────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   const fetchUsers = async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
@@ -121,6 +126,17 @@ export default function UsersPage() {
     await api.delete(`/users/${id}`);
     setUsers(prev => prev.filter(u => u.id !== id));
   };
+
+  // ── Pagination calculations ───────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(users.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedUsers = users.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -199,7 +215,7 @@ export default function UsersPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                users.map(u => {
+                paginatedUsers.map(u => {
                   const isSelf = u.username === currentUser?.username;
                   const initials = u.username.slice(0, 2).toUpperCase();
                   return (
@@ -303,6 +319,23 @@ export default function UsersPage() {
           </Table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && users.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={users.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 25, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemLabel="utilisateurs"
+        />
+      )}
 
       {/* User Form Modal (Create / Edit) */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>

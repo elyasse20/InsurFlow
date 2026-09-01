@@ -11,6 +11,7 @@ import { Compagne } from '@/types';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import Pagination from '@/components/Pagination';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
@@ -46,6 +47,10 @@ export default function CompagnesPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  // ── Pagination state ──────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
     try {
@@ -60,6 +65,17 @@ export default function CompagnesPage() {
     await api.delete(`/compagnes/${id}`);
     setCompagnes(prev => prev.filter(c => c.id !== id));
   };
+
+  // ── Pagination calculations ───────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(compagnes.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedCompagnes = compagnes.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="max-w-4xl mx-auto w-full space-y-6 sm:space-y-8">
@@ -108,7 +124,7 @@ export default function CompagnesPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {compagnes.map(c => (
+          {paginatedCompagnes.map(c => (
             <div key={c.id} className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
               {/* Header row */}
               <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 sm:py-4">
@@ -191,6 +207,23 @@ export default function CompagnesPage() {
             </div>
           ))}
         </div>
+      )}
+
+      {/* Pagination */}
+      {!loading && compagnes.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={compagnes.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 25, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemLabel="compagnies"
+        />
       )}
     </div>
   );

@@ -26,6 +26,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ClientSheet } from '@/components/clients/ClientSheet';
 import { EmptyClients } from '@/components/clients/EmptyClients';
+import Pagination from '@/components/Pagination';
 
 /* ── Skeleton rows while loading ─────────────────────────────────────────── */
 function TableSkeleton() {
@@ -65,6 +66,10 @@ export default function ClientsPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  // ── Pagination state ──────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
   /* ── Data fetching ─────────────────────────────────────────────────────── */
   const fetchClients = useCallback(async (nom?: string, silent = false) => {
     if (!silent) setLoading(true);
@@ -85,11 +90,13 @@ export default function ClientsPage() {
   /* ── Handlers ──────────────────────────────────────────────────────────── */
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setCurrentPage(1);
     fetchClients(search || undefined);
   };
 
   const clearSearch = () => {
     setSearch('');
+    setCurrentPage(1);
     fetchClients();
   };
 
@@ -103,6 +110,17 @@ export default function ClientsPage() {
   };
 
   const isFiltered = search.trim().length > 0;
+
+  // ── Pagination calculations ───────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(clients.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedClients = clients.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -207,7 +225,7 @@ export default function ClientsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                clients.map(client => (
+                paginatedClients.map(client => (
                   <TableRow key={client.id} className="border-border/40 group">
 
                     {/* Type badge */}
@@ -333,6 +351,23 @@ export default function ClientsPage() {
           </Table>
         </div>
       </div>
+
+      {/* ── Pagination ───────────────────────────────────────────────────── */}
+      {!loading && clients.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={clients.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 25, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemLabel="clients"
+        />
+      )}
 
       {/* ── Stats footer ────────────────────────────────────────────────── */}
       {!loading && clients.length > 0 && (

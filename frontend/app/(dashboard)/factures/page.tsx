@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils';
+import Pagination from '@/components/Pagination';
 
 export default function FacturesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -19,6 +20,10 @@ export default function FacturesPage() {
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
 
   // Modal for Proforma creation
   const [showProformaModal, setShowProformaModal] = useState<boolean>(false);
@@ -60,6 +65,25 @@ export default function FacturesPage() {
 
     return matchesSearch && matchesType && matchesStatus;
   });
+
+  // Reset pagination on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedType, selectedStatus]);
+
+  // Pagination calculations
+  const totalPages = Math.max(1, Math.ceil(filteredInvoices.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedInvoices = React.useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredInvoices.slice(start, start + pageSize);
+  }, [filteredInvoices, currentPage, pageSize]);
 
   // Calculate Summary Metrics
   const totalFacture = invoices
@@ -257,7 +281,7 @@ export default function FacturesPage() {
                   </td>
                 </tr>
               ) : (
-                filteredInvoices.map((inv) => (
+                paginatedInvoices.map((inv) => (
                   <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
                     {/* Invoice Number */}
                     <td className="py-3.5 px-4 font-mono font-bold text-foreground whitespace-nowrap">
@@ -347,6 +371,23 @@ export default function FacturesPage() {
           </table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && filteredInvoices.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filteredInvoices.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 25, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemLabel="factures"
+        />
+      )}
 
       {/* Proforma Modal */}
       {showProformaModal && (

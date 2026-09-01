@@ -13,6 +13,7 @@ import {
   Table, TableBody, TableCell, TableHead,
   TableHeader, TableRow,
 } from '@/components/ui/table';
+import Pagination from '@/components/Pagination';
 
 const STATUS_CONFIG = {
   PAYE:       { label: 'Payé',       variant: 'green' as const },
@@ -61,6 +62,10 @@ export default function CreditHistoryPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState('');
 
+  // ── Pagination state ──────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
   const fetchData = useCallback(async (client?: string, silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
     try {
@@ -73,14 +78,26 @@ export default function CreditHistoryPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
+    setCurrentPage(1);
     fetchData(filter || undefined);
   };
 
-  const clearFilter = () => { setFilter(''); fetchData(); };
+  const clearFilter = () => { setFilter(''); setCurrentPage(1); fetchData(); };
 
   const isFiltered = filter.trim().length > 0;
   const totalPaye = reglements.reduce((s, r) => s + r.payments.reduce((sp, p) => sp + p.montant, 0), 0);
   const totalDu = reglements.reduce((s, r) => s + r.montantTotal, 0);
+
+  // ── Pagination calculations ───────────────────────────────────────────────
+  const totalPages = Math.max(1, Math.ceil(reglements.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedReglements = reglements.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -161,7 +178,7 @@ export default function CreditHistoryPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                reglements.map(r => {
+                paginatedReglements.map(r => {
                   const paid = r.payments.reduce((s, p) => s + p.montant, 0);
                   const remaining = Math.max(0, r.montantTotal - paid);
                   const status = STATUS_CONFIG[r.status] ?? STATUS_CONFIG.EN_ATTENTE;
@@ -184,6 +201,23 @@ export default function CreditHistoryPage() {
           </Table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && reglements.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={reglements.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 25, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemLabel="règlements"
+        />
+      )}
     </div>
   );
 }
