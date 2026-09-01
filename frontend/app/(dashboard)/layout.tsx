@@ -36,21 +36,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex min-h-screen bg-background overflow-x-hidden w-full">
+    <div className="min-h-screen bg-background w-full flex">
+      {/* ── Left Sidebar Navigation (Desktop fixed + Mobile drawer) ── */}
       <NavBar
         mobileOpen={mobileNavOpen}
         onCloseMobile={() => setMobileNavOpen(false)}
       />
-      <div className="flex-1 lg:ml-64 ml-0 min-h-screen flex flex-col min-w-0 w-full overflow-x-hidden">
+
+      {/* ── Main Content Area with Persistent Sticky Header ─────────── */}
+      <div className="flex-1 lg:ml-64 ml-0 min-h-screen flex flex-col min-w-0 w-full">
+        {/* Sticky Header visible across all dashboard sub-routes */}
         <Header onToggleMobileNav={() => setMobileNavOpen(v => !v)} />
-        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 overflow-y-auto w-full min-w-0">
+
+        {/* Page Content Container */}
+        <main className="flex-1 p-3.5 sm:p-6 lg:p-8 w-full min-w-0">
           <div className="max-w-7xl mx-auto w-full space-y-6 sm:space-y-8 min-w-0">
             {children}
           </div>
         </main>
       </div>
 
-      {/* Floating AI Copilot Assistant */}
+      {/* ── Floating AI Copilot Assistant ──────────────────────────── */}
       <CopilotWidget />
     </div>
   );

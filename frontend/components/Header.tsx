@@ -1,6 +1,7 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import NotificationDropdown from '@/components/NotificationDropdown';
 import ClaimsAnalyzerModal from '@/components/ai/ClaimsAnalyzerModal';
 import { useAuth } from '@/context/AuthContext';
@@ -15,9 +16,18 @@ interface HeaderProps {
 
 export default function Header({ onToggleMobileNav }: HeaderProps) {
   const { user } = useAuth();
+  const router = useRouter();
+  const [searchTerm, setSearchTerm] = useState('');
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchTerm.trim()) {
+      router.push(`/operations?search=${encodeURIComponent(searchTerm.trim())}`);
+    }
+  };
 
   return (
-    <header className="h-16 border-b border-border bg-card/60 backdrop-blur-md px-3.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 w-full min-w-0">
+    <header className="h-16 border-b border-border bg-white/80 dark:bg-card/80 backdrop-blur-md px-3.5 sm:px-6 flex items-center justify-between sticky top-0 z-30 w-full min-w-0 transition-colors">
       {/* Left: Mobile Menu Hamburger & Search */}
       <div className="flex items-center gap-2 sm:gap-4 flex-1 min-w-0 max-w-md">
         {/* Mobile Hamburger Button */}
@@ -32,14 +42,16 @@ export default function Header({ onToggleMobileNav }: HeaderProps) {
         </Button>
 
         {/* Global Search Bar */}
-        <div className="relative w-full min-w-0">
+        <form onSubmit={handleSearchSubmit} className="relative w-full min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
           <Input
             type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher une police, client..."
             className="pl-9 pr-3 bg-muted/40 border-border h-9 text-xs focus:bg-background transition-colors w-full"
           />
-        </div>
+        </form>
       </div>
 
       {/* Right Controls */}
@@ -50,15 +62,14 @@ export default function Header({ onToggleMobileNav }: HeaderProps) {
         {/* Notification Bell & Dropdown */}
         <NotificationDropdown />
 
-
         {/* User Badge */}
         <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-border">
           <div className="text-right text-xs">
             <p className="font-semibold text-foreground leading-tight truncate max-w-[120px]">
-              {user?.username}
+              {user?.username || 'admin'}
             </p>
             <p className="text-[10px] text-muted-foreground capitalize">
-              {user?.role?.toLowerCase()}
+              {user?.role?.toLowerCase() || 'Admin'}
             </p>
           </div>
         </div>
