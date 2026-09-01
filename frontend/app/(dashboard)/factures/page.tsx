@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { downloadInvoicePdf } from '@/lib/export';
 import { Invoice } from '@/types';
 import {
-  Download, Plus, Search, RefreshCw, X, Receipt
+  Download, Plus, Search, RefreshCw, X, Receipt, AlertTriangle, FileX2, AlertCircle, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,11 @@ export default function FacturesPage() {
   const [selectedType, setSelectedType] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
+
+  // Avoir confirmation modal state
+  const [selectedInvoiceForAvoir, setSelectedInvoiceForAvoir] = useState<Invoice | null>(null);
+  const [isSubmittingAvoir, setIsSubmittingAvoir] = useState<boolean>(false);
+  const [avoirError, setAvoirError] = useState<string | null>(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -156,15 +161,26 @@ export default function FacturesPage() {
     }
   };
 
-  // Handle Credit Note (Avoir) creation
-  const handleCreateAvoir = async (id: string) => {
-    if (!confirm("Voulez-vous générer une Facture d'Avoir annulant cette facture ?")) return;
+  // Handle Credit Note (Avoir) modal opening
+  const handleOpenAvoirModal = (inv: Invoice) => {
+    setSelectedInvoiceForAvoir(inv);
+    setAvoirError(null);
+  };
+
+  // Submit Credit Note (Avoir) creation
+  const handleConfirmAvoir = async () => {
+    if (!selectedInvoiceForAvoir) return;
+    setIsSubmittingAvoir(true);
+    setAvoirError(null);
     try {
-      await api.post(`/invoices/${id}/credit-note`);
+      await api.post(`/invoices/${selectedInvoiceForAvoir.id}/credit-note`);
+      setSelectedInvoiceForAvoir(null);
       await fetchInvoices();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to generate credit note:', err);
-      alert("Erreur lors de la création de l'avoir");
+      setAvoirError(err.response?.data?.message || "Une erreur est survenue lors de la création de l'avoir.");
+    } finally {
+      setIsSubmittingAvoir(false);
     }
   };
 
@@ -421,7 +437,7 @@ export default function FacturesPage() {
 
                         {inv.type === 'STANDARD' && (
                           <Button
-                            onClick={() => handleCreateAvoir(inv.id)}
+                            onClick={() => handleOpenAvoirModal(inv)}
                             size="sm"
                             variant="ghost"
                             className="h-8 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
@@ -561,6 +577,118 @@ export default function FacturesPage() {
                 <Button type="submit" className="w-full sm:w-auto">Générer Proforma</Button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Custom Avoir Confirmation Modal ─────────────────────────────── */}
+      {selectedInvoiceForAvoir && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-3.5 sm:p-4 animate-in fade-in-0 duration-200">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto p-5 sm:p-6 space-y-5 animate-in fade-in-0 zoom-in-95 duration-200">
+            {/* Header with warning / accounting action icon in amber/red */}
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-500/20 via-rose-500/15 to-rose-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shadow-md shadow-amber-500/10 flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+              </div>
+              <div className="space-y-1 flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-foreground">
+                    Générer une facture d&apos;avoir
+                  </h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isSubmittingAvoir) {
+                        setSelectedInvoiceForAvoir(null);
+                        setAvoirError(null);
+                      }
+                    }}
+                    disabled={isSubmittingAvoir}
+                    className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Action comptable & annulation
+                </p>
+              </div>
+            </div>
+
+            {/* Error banner if any */}
+            {avoirError && (
+              <div className="flex items-center gap-2 bg-destructive/10 border border-destructive/30 text-rose-400 rounded-xl px-3.5 py-2.5 text-xs">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                <span>{avoirError}</span>
+              </div>
+            )}
+
+            {/* Message & Selected Invoice Highlights */}
+            <div className="space-y-3 text-xs">
+              <p className="text-muted-foreground leading-relaxed">
+                Cette action générera un document d&apos;avoir officiel annulant la facture sélectionnée.
+              </p>
+
+              {/* Highlight Card */}
+              <div className="p-3.5 rounded-xl bg-muted/30 border border-border/80 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">N° Facture :</span>
+                  <span className="font-mono font-bold text-foreground bg-background px-2 py-0.5 rounded border border-border/70 text-[11px]">
+                    {selectedInvoiceForAvoir.invoiceNumber}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Client :</span>
+                  <span className="font-semibold text-foreground truncate max-w-[200px]">
+                    {selectedInvoiceForAvoir.clientName}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-border/60">
+                  <span className="text-muted-foreground">Montant TTC à annuler :</span>
+                  <span className="font-mono font-bold text-foreground text-sm">
+                    {selectedInvoiceForAvoir.amountTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-[11px] text-muted-foreground/80 italic">
+                ℹ️ Une facture d&apos;avoir de type <span className="font-semibold text-rose-400">AVOIR</span> sera émise pour régulariser les écritures comptables.
+              </p>
+            </div>
+
+            {/* Two Stylized Buttons: Annuler (sobre) & Confirmer (premium amber/rouge with isSubmitting) */}
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2.5 pt-3 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isSubmittingAvoir}
+                onClick={() => {
+                  setSelectedInvoiceForAvoir(null);
+                  setAvoirError(null);
+                }}
+                className="w-full sm:w-auto text-xs border-border hover:bg-muted"
+              >
+                Annuler
+              </Button>
+              <Button
+                type="button"
+                disabled={isSubmittingAvoir}
+                onClick={handleConfirmAvoir}
+                className="w-full sm:w-auto text-xs gap-1.5 bg-gradient-to-r from-amber-600 via-rose-600 to-red-600 hover:from-amber-500 hover:via-rose-500 hover:to-red-500 text-white font-medium shadow-md shadow-rose-600/20 border-0 transition-all"
+              >
+                {isSubmittingAvoir ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Génération en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileX2 className="w-3.5 h-3.5" />
+                    <span>Confirmer la génération</span>
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       )}
