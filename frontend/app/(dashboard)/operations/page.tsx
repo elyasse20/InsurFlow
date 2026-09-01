@@ -13,6 +13,7 @@ import { formatMoisDem, formatAmount } from '@/lib/format';
 import { exportToCSV, exportToPDF, downloadInvoicePdf, ExportColumn } from '@/lib/export';
 import ExerciceSelector from '@/components/ExerciceSelector';
 import ClaimsAnalyzerModal from '@/components/ai/ClaimsAnalyzerModal';
+import Pagination from '@/components/Pagination';
 
 import { Button } from '@/components/ui/button';
 
@@ -116,6 +117,10 @@ export default function OperationsPage() {
   const [filterCompagne, setFilterCompagne] = useState('');
   const [filterMonth, setFilterMonth] = useState('');
 
+  // ── Pagination state ──────────────────────────────────────────────────────
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
+
   const fetchData = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
     try {
@@ -163,10 +168,28 @@ export default function OperationsPage() {
   const hasFilters = search || filterCategory || filterCompagne || filterMonth;
   const clearFilters = () => {
     setSearch(''); setFilterCategory(''); setFilterCompagne(''); setFilterMonth('');
+    setCurrentPage(1);
   };
 
-  // ── Totals ────────────────────────────────────────────────────────────────
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, filterExercice, filterCategory, filterCompagne, filterMonth]);
+
+  // ── Totals & Pagination calculation ────────────────────────────────────────
   const totalRevenuFiltered = filtered.reduce((s, p) => s + prodTotal(p), 0);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginated = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   // ── Export handlers ───────────────────────────────────────────────────────
   const handleExportCSV = () => {
@@ -373,7 +396,7 @@ export default function OperationsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filtered.map(prod => (
+                paginated.map(prod => (
                   <TableRow key={prod.id} className="border-border/40 group">
                     <TableCell>
                       <span className="font-mono text-sm text-primary font-semibold">{prod.numpolice}</span>
@@ -463,6 +486,23 @@ export default function OperationsPage() {
           </Table>
         </div>
       </div>
+
+      {/* Pagination */}
+      {!loading && filtered.length > 0 && (
+        <Pagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          pageSizeOptions={[10, 25, 50]}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={(newSize) => {
+            setPageSize(newSize);
+            setCurrentPage(1);
+          }}
+          itemLabel="opérations"
+        />
+      )}
 
       {/* Stats footer */}
       {!loading && filtered.length > 0 && (
