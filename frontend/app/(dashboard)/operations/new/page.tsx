@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Plus, Trash2, Loader2, AlertCircle, FileText, TrendingUp, PieChart } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, Loader2, AlertCircle, FileText, TrendingUp, PieChart, Sparkles } from 'lucide-react';
 import api from '@/lib/api';
-import { Nature, Category, Compagne, Tva, Parametre, ProductionParameter, Client, CompagneRepartition } from '@/types';
+import { Nature, Category, Compagne, Tva, Parametre, ProductionParameter, Client, CompagneRepartition, Production } from '@/types';
 import RiskAssessmentModal from '@/components/ai/RiskAssessmentModal';
 
 import { Button } from '@/components/ui/button';
@@ -17,6 +17,73 @@ const emptyParam = (): Omit<ProductionParameter, 'name'> & { name: string } =>
   ({ name: '', primes: 0, taxe: 0, taxepara: 0, accessoire: 0, cnpc: 0, commission: 0 });
 
 const emptyRepartition = (): CompagneRepartition => ({ compagneName: '', percent: 0 });
+
+/* ── Helper Functions for Policy Number Generation ── */
+
+/**
+ * Extracts a clean normalized trigram or uppercase code from a company name.
+ * e.g. "AtlantaSanad Assurance" -> "ATLANTA", "Sanlam Maroc" -> "SANLAM", "Wafa Assurance" -> "WAFA"
+ */
+function extractCompanyCode(companyName?: string | null): string {
+  if (!companyName) return 'GEN';
+  const clean = companyName.toUpperCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (clean.includes('ATLANTA')) return 'ATLANTA';
+  if (clean.includes('SANLAM')) return 'SANLAM';
+  if (clean.includes('WAFA')) return 'WAFA';
+  if (clean.includes('RMA')) return 'RMA';
+  if (clean.includes('ALLIANZ')) return 'ALLIANZ';
+  if (clean.includes('AXA')) return 'AXA';
+  if (clean.includes('TAOUNATE')) return 'TAOUNATE';
+  if (clean.includes('CHAABI')) return 'CHAABI';
+
+  const firstWord = clean.replace(/[^A-Z0-9\s]/g, '').trim().split(/\s+/)[0];
+  return firstWord && firstWord.length >= 2 ? firstWord : 'CIE';
+}
+
+/**
+ * Generates an incremental, formatted policy number: POL-{COMPAGNIE}-{ANNEE}-{00X}
+ */
+function generatePolicyNumber(
+  companyName: string,
+  dateEff: string,
+  existingList: Production[] = []
+): string {
+  if (!companyName) return '';
+  const compCode = extractCompanyCode(companyName);
+
+  let year = new Date().getFullYear();
+  if (dateEff && dateEff.length >= 4) {
+    const parsed = parseInt(dateEff.substring(0, 4), 10);
+    if (!isNaN(parsed) && parsed > 1900) year = parsed;
+  }
+
+  const prefix = `POL-${compCode}-${year}-`;
+  let maxSeq = 0;
+  let countForCompYear = 0;
+
+  for (const p of existingList) {
+    if (!p) continue;
+    const pYear = p.dateEff ? parseInt(p.dateEff.substring(0, 4), 10) : (p.exercice || 0);
+    const pCompCode = extractCompanyCode(p.compagne);
+
+    if (pCompCode === compCode && (pYear === year || pYear === 0)) {
+      countForCompYear++;
+    }
+
+    if (p.numpolice && p.numpolice.startsWith(prefix)) {
+      const seqPart = p.numpolice.substring(prefix.length);
+      const parsedSeq = parseInt(seqPart, 10);
+      if (!isNaN(parsedSeq) && parsedSeq > maxSeq) {
+        maxSeq = parsedSeq;
+      }
+    }
+  }
+
+  const nextIndex = maxSeq > 0 ? maxSeq + 1 : countForCompYear + 1;
+  const seqStr = String(nextIndex).padStart(3, '0');
+
+  return `POL-${compCode}-${year}-${seqStr}`;
+}
 
 /* ── Sub-components ──────────────────────────────────────────────────────── */
 function FieldRow({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
@@ -55,6 +122,7 @@ export default function NewOperationPage() {
   const [tvas, setTvas] = useState<Tva[]>([]);
   const [parametres, setParametres] = useState<Parametre[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [existingProductions, setExistingProductions] = useState<Production[]>([]);
 
   const [form, setForm] = useState({
     natureOperation: '', client: '', dateEff: '',
@@ -67,14 +135,22 @@ export default function NewOperationPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get<Nature[]>('/natures'), api.get<Category[]>('/categories'),
-      api.get<Compagne[]>('/compagnes'), api.get<Tva[]>('/tva'),
-      api.get<Parametre[]>('/parametres'), api.get<Client[]>('/clients'),
-    ]).then(([n, c, comp, t, p, cl]) => {
-      setNatures(n.data); setCategories(c.data);
-      setCompagnes(comp.data); setTvas(t.data);
-      setParametres(p.data); setClients(cl.data);
-    });
+      api.get<Nature[]>('/natures'),
+      api.get<Category[]>('/categories'),
+      api.get<Compagne[]>('/compagnes'),
+      api.get<Tva[]>('/tva'),
+      api.get<Parametre[]>('/parametres'),
+      api.get<Client[]>('/clients'),
+      api.get<Production[]>('/productions'),
+    ]).then(([n, c, comp, t, p, cl, prods]) => {
+      setNatures(n.data);
+      setCategories(c.data);
+      setCompagnes(comp.data);
+      setTvas(t.data);
+      setParametres(p.data);
+      setClients(cl.data);
+      setExistingProductions(prods.data ?? []);
+    }).catch(() => {});
   }, []);
 
   const getCommissionRate = (catName: string): number => {
@@ -85,6 +161,48 @@ export default function NewOperationPage() {
 
   const setF = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm(p => ({ ...p, [k]: e.target.value }));
+
+  /* ── Auto-generation on Compagnie Change ── */
+  const handleCompagneChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCompagne = e.target.value;
+    const autoPolicy = newCompagne
+      ? generatePolicyNumber(newCompagne, form.dateEff, existingProductions)
+      : '';
+
+    setForm(p => ({
+      ...p,
+      compagne: newCompagne,
+      numpolice: autoPolicy || p.numpolice,
+    }));
+  };
+
+  /* ── Date d'effet Change & Policy Year Sync ── */
+  const handleDateEffChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newDate = e.target.value;
+    setForm(p => {
+      const newMoisDem = !p.moisDem && newDate && newDate.length >= 7
+        ? newDate.substring(0, 7)
+        : p.moisDem;
+
+      let newPolicy = p.numpolice;
+      if (p.compagne && (!p.numpolice || p.numpolice.startsWith('POL-'))) {
+        newPolicy = generatePolicyNumber(p.compagne, newDate, existingProductions);
+      }
+
+      return {
+        ...p,
+        dateEff: newDate,
+        moisDem: newMoisDem,
+        numpolice: newPolicy,
+      };
+    });
+  };
+
+  const handleRegeneratePolicy = () => {
+    if (!form.compagne) return;
+    const generated = generatePolicyNumber(form.compagne, form.dateEff, existingProductions);
+    setForm(p => ({ ...p, numpolice: generated }));
+  };
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newCategory = e.target.value;
@@ -228,12 +346,15 @@ export default function NewOperationPage() {
           <h2 className="text-base font-semibold text-foreground">Informations générales</h2>
           <Separator />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Nature */}
             <FieldRow label="Nature" id="nature">
               <StyledSelect id="nature" value={form.natureOperation} onChange={setF('natureOperation')} required>
                 <option value="">-- Sélectionner --</option>
                 {natures.map(n => <option key={n.id} value={n.name} className="bg-card">{n.name}</option>)}
               </StyledSelect>
             </FieldRow>
+
+            {/* Client */}
             <FieldRow label="Client (nom)" id="client">
               <Combobox
                 options={clients.map(c => ({ value: c.nom, label: c.nom }))}
@@ -243,27 +364,58 @@ export default function NewOperationPage() {
                 emptyText="Aucun client trouvé."
               />
             </FieldRow>
-            <FieldRow label="N° Police" id="numpolice">
-              <StyledInput id="numpolice" value={form.numpolice} onChange={setF('numpolice')} required placeholder="Numéro de police" />
-            </FieldRow>
+
+            {/* Date d'effet */}
             <FieldRow label="Date d'effet" id="dateEff">
-              <StyledInput id="dateEff" type="date" value={form.dateEff} onChange={setF('dateEff')} required />
+              <StyledInput id="dateEff" type="date" value={form.dateEff} onChange={handleDateEffChange} required />
             </FieldRow>
+
+            {/* Mois de demande */}
             <FieldRow label="Mois de demande" id="moisDem">
               <StyledInput id="moisDem" type="month" value={form.moisDem} onChange={setF('moisDem')} required />
             </FieldRow>
-            <FieldRow label="Compagne" id="compagne">
-              <StyledSelect id="compagne" value={form.compagne} onChange={setF('compagne')} required>
-                <option value="">-- Sélectionner --</option>
+
+            {/* Compagnie (Placée avant N° Police) */}
+            <FieldRow label="Compagnie" id="compagne">
+              <StyledSelect id="compagne" value={form.compagne} onChange={handleCompagneChange} required>
+                <option value="">-- Sélectionner une compagnie --</option>
                 {compagnes.map(c => <option key={c.id} value={c.compagneName} className="bg-card">{c.compagneName}</option>)}
               </StyledSelect>
             </FieldRow>
+
+            {/* N° Police (Auto-généré à la sélection de la compagnie, modifiable librement) */}
+            <FieldRow label="N° Police" id="numpolice">
+              <div className="relative flex items-center">
+                <StyledInput
+                  id="numpolice"
+                  value={form.numpolice}
+                  onChange={setF('numpolice')}
+                  required
+                  placeholder="ex: POL-SANLAM-2026-001"
+                />
+                {form.compagne && (
+                  <button
+                    type="button"
+                    onClick={handleRegeneratePolicy}
+                    className="absolute right-2 text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 bg-muted/60 hover:bg-muted px-2 py-1 rounded-md"
+                    title="Régénérer le N° de Police automatique"
+                  >
+                    <Sparkles className="w-3 h-3 text-primary" />
+                    <span className="text-[10px] font-medium hidden sm:inline">Auto</span>
+                  </button>
+                )}
+              </div>
+            </FieldRow>
+
+            {/* Catégorie */}
             <FieldRow label="Catégorie" id="category">
               <StyledSelect id="category" value={form.category} onChange={handleCategoryChange} required>
                 <option value="">-- Sélectionner --</option>
                 {categories.map(c => <option key={c.id} value={c.name} className="bg-card">{c.name}</option>)}
               </StyledSelect>
             </FieldRow>
+
+            {/* TVA */}
             <FieldRow label="TVA" id="tva">
               <StyledSelect id="tva" value={form.tvaRate} onChange={setF('tvaRate')}>
                 <option value="0" className="bg-card">Sans TVA (0%)</option>

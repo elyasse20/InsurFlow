@@ -83,6 +83,7 @@ export interface Production {
   repartitions?: CompagneRepartition[];
   parameters: ProductionParameter[];
   montantTotal?: number; // virtual — may be present if Spring returns it
+  exercice?: number;     // virtual exercice year
   createdAt: string;
   updatedAt: string;
 }

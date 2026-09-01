@@ -272,20 +272,20 @@ export default function EditOperationPage() {
                 emptyText="Aucun client trouvé."
               />
             </FieldRow>
-            <FieldRow label="N° Police" id="numpolice">
-              <StyledInput id="numpolice" value={form.numpolice} onChange={setF('numpolice')} required placeholder="Numéro de police" />
-            </FieldRow>
             <FieldRow label="Date d'effet" id="dateEff">
               <StyledInput id="dateEff" type="date" value={form.dateEff} onChange={setF('dateEff')} required />
             </FieldRow>
             <FieldRow label="Mois de demande" id="moisDem">
               <StyledInput id="moisDem" type="month" value={form.moisDem} onChange={setF('moisDem')} required />
             </FieldRow>
-            <FieldRow label="Compagne" id="compagne">
+            <FieldRow label="Compagnie" id="compagne">
               <StyledSelect id="compagne" value={form.compagne} onChange={setF('compagne')} required>
-                <option value="">-- Sélectionner --</option>
+                <option value="">-- Sélectionner une compagnie --</option>
                 {compagnes.map(c => <option key={c.id} value={c.compagneName} className="bg-card">{c.compagneName}</option>)}
               </StyledSelect>
+            </FieldRow>
+            <FieldRow label="N° Police" id="numpolice">
+              <StyledInput id="numpolice" value={form.numpolice} onChange={setF('numpolice')} required placeholder="Numéro de police" />
             </FieldRow>
             <FieldRow label="Catégorie" id="category">
               <StyledSelect id="category" value={form.category} onChange={handleCategoryChange} required>
