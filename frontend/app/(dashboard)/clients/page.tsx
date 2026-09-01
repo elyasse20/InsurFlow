@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Search, Edit2, Trash2, User, Building2,
@@ -71,14 +71,12 @@ export default function ClientsPage() {
   const [pageSize, setPageSize] = useState<number>(10);
 
   /* ── Data fetching ─────────────────────────────────────────────────────── */
-  const fetchClients = useCallback(async (nom?: string, silent = false) => {
+  const fetchClients = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     else setRefreshing(true);
     try {
-      const { data } = await api.get<Client[]>('/clients', {
-        params: nom ? { nom } : {},
-      });
-      setClients(data);
+      const { data } = await api.get<Client[]>('/clients');
+      setClients(data || []);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -93,22 +91,45 @@ export default function ClientsPage() {
       const q = params.get('search');
       if (q) {
         setSearch(q);
-        fetchClients(q);
       }
     }
-  }, [fetchClients]);
+  }, []);
 
-  /* ── Handlers ──────────────────────────────────────────────────────────── */
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
+  /* ── Multi-Column Live Filtering ────────────────────────────────────────── */
+  const filteredClients = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return clients;
+    const terms = q.split(/\s+/).filter(Boolean);
+
+    return clients.filter(c => {
+      const typeLabel = c.type === 'societe' ? 'societe entreprise sarl' : 'particulier';
+      const searchTarget = `
+        ${c.nom || ''} 
+        ${c.prenom || ''} 
+        ${c.type || ''} 
+        ${typeLabel} 
+        ${c.cin || ''} 
+        ${c.ice || ''} 
+        ${c.rc || ''} 
+        ${c.identifiantFiscal || ''} 
+        ${c.tel || ''} 
+        ${c.adresse || ''} 
+        ${c.budget || ''} 
+        ${c.credit || ''}
+      `.toLowerCase();
+
+      return terms.every(t => searchTarget.includes(t));
+    });
+  }, [clients, search]);
+
+  // Reset pagination to page 1 on search change
+  useEffect(() => {
     setCurrentPage(1);
-    fetchClients(search || undefined);
-  };
+  }, [search]);
 
   const clearSearch = () => {
     setSearch('');
     setCurrentPage(1);
-    fetchClients();
   };
 
   const handleDelete = async (id: string) => {
@@ -123,7 +144,7 @@ export default function ClientsPage() {
   const isFiltered = search.trim().length > 0;
 
   // ── Pagination calculations ───────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(clients.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredClients.length / pageSize));
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -131,7 +152,7 @@ export default function ClientsPage() {
     }
   }, [currentPage, totalPages]);
 
-  const paginatedClients = clients.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedClients = filteredClients.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -150,7 +171,9 @@ export default function ClientsPage() {
           <p className="text-xs sm:text-sm text-muted-foreground pl-10">
             {loading
               ? 'Chargement du portefeuille...'
-              : `${clients.length} client${clients.length > 1 ? 's' : ''} dans votre portefeuille`
+              : isFiltered
+                ? `${filteredClients.length} résultat(s) sur ${clients.length} client(s)`
+                : `${clients.length} client${clients.length > 1 ? 's' : ''} dans votre portefeuille`
             }
           </p>
         </div>
@@ -160,7 +183,7 @@ export default function ClientsPage() {
           <Button
             variant="outline"
             size="icon"
-            onClick={() => fetchClients(search || undefined, true)}
+            onClick={() => fetchClients(true)}
             disabled={refreshing}
             className="h-9 w-9 flex-shrink-0"
             title="Actualiser"
@@ -179,31 +202,27 @@ export default function ClientsPage() {
         </div>
       </div>
 
-      {/* ── Search bar ──────────────────────────────────────────────────── */}
-      <form onSubmit={handleSearch} className="flex gap-2 max-w-lg w-full">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 pointer-events-none" />
-          <Input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher par nom..."
-            className="pl-9 pr-9 bg-muted/30 border-border focus:border-primary h-9 w-full"
-          />
-          {search && (
-            <button
-              type="button"
-              onClick={clearSearch}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
-        </div>
-        <Button type="submit" variant="secondary" size="sm" className="px-3 sm:px-4 h-9 flex-shrink-0">
-          Rechercher
-        </Button>
-      </form>
+      {/* ── Instant Live Search bar ───────────────────────────────────────── */}
+      <div className="relative max-w-lg w-full">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 pointer-events-none" />
+        <Input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher par nom, CIN, ICE, téléphone, adresse, budget..."
+          className="pl-9 pr-9 bg-muted/30 border-border focus:border-primary h-9 w-full"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={clearSearch}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
+            title="Effacer la recherche"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
+      </div>
 
       {/* ── Table card ──────────────────────────────────────────────────── */}
       <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
@@ -224,7 +243,7 @@ export default function ClientsPage() {
             <TableBody>
               {loading ? (
                 <TableSkeleton />
-              ) : clients.length === 0 ? (
+              ) : filteredClients.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
                   <TableCell colSpan={7} className="p-0">
                     <div className="relative overflow-hidden">

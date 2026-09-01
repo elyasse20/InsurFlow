@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Plus, Edit2, Trash2, Users, Shield, User, RefreshCw, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Plus, Edit2, Trash2, Users, Shield, User, RefreshCw, AlertCircle, Eye, EyeOff, Loader2, Search, X } from 'lucide-react';
 import api from '@/lib/api';
 import { UserResponse, UserRole } from '@/types';
 import { useAuth } from '@/context/AuthContext';
@@ -46,6 +46,7 @@ const emptyForm: UserFormData = {
 export default function UsersPage() {
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState<UserResponse[]>([]);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -63,7 +64,7 @@ export default function UsersPage() {
     if (!silent) setLoading(true); else setRefreshing(true);
     try {
       const { data } = await api.get<UserResponse[]>('/users');
-      setUsers(data);
+      setUsers(data || []);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -73,6 +74,35 @@ export default function UsersPage() {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  /* ── Multi-Column Live Filtering ────────────────────────────────────────── */
+  const filteredUsers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return users;
+    const terms = q.split(/\s+/).filter(Boolean);
+
+    return users.filter(u => {
+      const roleLabel = u.role === 'ADMIN' ? 'administrateur admin' : u.role === 'OPERATOR' ? 'opérateur operateur agent' : 'utilisateur user';
+      const statusLabel = u.enabled ? 'actif active activé' : 'inactif inactive désactivé desactive';
+
+      const searchTarget = `
+        ${u.username || ''} 
+        ${u.email || ''} 
+        ${u.role || ''} 
+        ${roleLabel} 
+        ${statusLabel}
+      `.toLowerCase();
+
+      return terms.every(t => searchTarget.includes(t));
+    });
+  }, [users, search]);
+
+  // Reset pagination on search change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
+  const isFiltered = search.trim().length > 0;
 
   const openCreateModal = () => {
     setEditingUser(null);
@@ -128,7 +158,7 @@ export default function UsersPage() {
   };
 
   // ── Pagination calculations ───────────────────────────────────────────────
-  const totalPages = Math.max(1, Math.ceil(users.length / pageSize));
+  const totalPages = Math.max(1, Math.ceil(filteredUsers.length / pageSize));
 
   useEffect(() => {
     if (currentPage > totalPages && totalPages > 0) {
@@ -136,7 +166,7 @@ export default function UsersPage() {
     }
   }, [currentPage, totalPages]);
 
-  const paginatedUsers = users.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paginatedUsers = filteredUsers.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -152,7 +182,12 @@ export default function UsersPage() {
             </h1>
           </div>
           <p className="text-xs sm:text-sm text-muted-foreground pl-10">
-            {loading ? 'Chargement...' : `${users.length} utilisateur(s) enregistré(s)`}
+            {loading
+              ? 'Chargement...'
+              : isFiltered
+                ? `${filteredUsers.length} résultat(s) sur ${users.length} utilisateur(s)`
+                : `${users.length} utilisateur(s) enregistré(s)`
+            }
           </p>
         </div>
 
@@ -172,6 +207,28 @@ export default function UsersPage() {
             Nouvel utilisateur
           </Button>
         </div>
+      </div>
+
+      {/* Instant Live Search */}
+      <div className="relative max-w-lg w-full">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4 pointer-events-none" />
+        <Input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher par nom, email, rôle..."
+          className="pl-9 pr-9 bg-muted/30 border-border focus:border-primary h-9 w-full text-xs"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch('')}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
+            title="Effacer la recherche"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
 
       {/* Users Table with horizontal scroll */}
@@ -198,20 +255,15 @@ export default function UsersPage() {
                       </div>
                     </TableCell>
                     <TableCell><Skeleton className="h-4 w-40" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
-                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-1">
-                        <Skeleton className="h-8 w-8 rounded-lg" />
-                        <Skeleton className="h-8 w-8 rounded-lg" />
-                      </div>
-                    </TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-16 ml-auto" /></TableCell>
                   </TableRow>
                 ))
-              ) : users.length === 0 ? (
+              ) : filteredUsers.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={5} className="py-16 text-center text-muted-foreground text-sm">
-                    Aucun utilisateur trouvé
+                  <TableCell colSpan={5} className="py-12 text-center text-muted-foreground">
+                    {isFiltered ? 'Aucun utilisateur ne correspond à votre recherche.' : 'Aucun utilisateur enregistré.'}
                   </TableCell>
                 </TableRow>
               ) : (

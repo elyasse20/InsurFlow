@@ -161,16 +161,29 @@ export default function OperationsPage() {
   // ── Filtering (client-side) ───────────────────────────────────────────────
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
+    const terms = q ? q.split(/\s+/).filter(Boolean) : [];
+
     return productions.filter(prod => {
       if (filterExercice > 0) {
         const prodYear = prod.moisDem?.slice(0, 4) || prod.dateEff?.slice(0, 4);
         if (prodYear && prodYear !== String(filterExercice)) return false;
       }
-      if (q && !(
-        prod.numpolice?.toLowerCase().includes(q) ||
-        prod.client?.toLowerCase().includes(q) ||
-        prod.natureOperation?.toLowerCase().includes(q)
-      )) return false;
+      if (terms.length > 0) {
+        const total = prodTotal(prod);
+        const searchTarget = `
+          ${prod.numpolice || ''} 
+          ${prod.client || ''} 
+          ${prod.category || ''} 
+          ${prod.compagne || ''} 
+          ${prod.natureOperation || ''} 
+          ${prod.dateEff || ''} 
+          ${prod.moisDem || ''} 
+          ${total} 
+          ${total.toLocaleString('fr-MA')}
+        `.toLowerCase();
+
+        if (!terms.every(t => searchTarget.includes(t))) return false;
+      }
       if (filterCategory && prod.category !== filterCategory) return false;
       if (filterCompagne && prod.compagne !== filterCompagne) return false;
       if (filterMonth) {
@@ -304,13 +317,23 @@ export default function OperationsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             {/* Text search */}
             <div className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none" />
               <Input
-                placeholder="Client, police, nature…"
+                placeholder="Rechercher par police, client, compagnie, montant..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="bg-muted/30 border-border focus:border-primary pl-8 h-9"
+                className="bg-muted/30 border-border focus:border-primary pl-8 pr-8 h-9 text-xs"
               />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
+                  title="Effacer la recherche"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             {/* Category */}
             <select

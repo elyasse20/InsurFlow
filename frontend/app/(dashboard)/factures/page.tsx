@@ -60,18 +60,50 @@ export default function FacturesPage() {
     }
   }, []);
 
-  // Filtered invoices
-  const filteredInvoices = invoices.filter((inv) => {
-    const matchesSearch =
-      inv.invoiceNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      inv.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (inv.policyNumber && inv.policyNumber.toLowerCase().includes(searchTerm.toLowerCase()));
+  // Filtered invoices (multi-column live search)
+  const filteredInvoices = React.useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    const terms = q ? q.split(/\s+/).filter(Boolean) : [];
 
-    const matchesType = selectedType === 'ALL' || inv.type === selectedType;
-    const matchesStatus = selectedStatus === 'ALL' || inv.status === selectedStatus;
+    return invoices.filter((inv) => {
+      if (terms.length > 0) {
+        const statusMap: Record<string, string> = {
+          PAID: 'payé paye reglé paid',
+          PARTIAL: 'partiel partial',
+          UNPAID: 'impayé impaye attente unpaid',
+        };
+        const typeMap: Record<string, string> = {
+          STANDARD: 'facture standard',
+          PROFORMA: 'proforma devis',
+          AVOIR: 'avoir annulation',
+        };
 
-    return matchesSearch && matchesType && matchesStatus;
-  });
+        const searchTarget = `
+          ${inv.invoiceNumber || ''} 
+          ${inv.clientName || ''} 
+          ${inv.policyNumber || ''} 
+          ${inv.compagne || ''} 
+          ${inv.category || ''} 
+          ${inv.type || ''} 
+          ${typeMap[inv.type] || ''} 
+          ${inv.status || ''} 
+          ${statusMap[inv.status] || ''} 
+          ${inv.amountTTC || ''} 
+          ${inv.paidAmount || ''} 
+          ${inv.remainingAmount || ''} 
+          ${inv.notes || ''} 
+          ${inv.createdAt || ''}
+        `.toLowerCase();
+
+        if (!terms.every(t => searchTarget.includes(t))) return false;
+      }
+
+      const matchesType = selectedType === 'ALL' || inv.type === selectedType;
+      const matchesStatus = selectedStatus === 'ALL' || inv.status === selectedStatus;
+
+      return matchesType && matchesStatus;
+    });
+  }, [invoices, searchTerm, selectedType, selectedStatus]);
 
   // Reset pagination on filter change
   useEffect(() => {
@@ -150,53 +182,72 @@ export default function FacturesPage() {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 pb-12">
-      {/* Header Title */}
+    <div className="space-y-6 sm:space-y-8">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight flex items-center gap-2.5">
-            <Receipt className="w-6 h-6 sm:w-7 sm:h-7 text-primary flex-shrink-0" />
-            Facturation & Comptabilité
-          </h1>
-          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-            Gestion des factures, devis proforma, avoirs et génération de documents PDF officiels.
+        <div className="space-y-1">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
+              <Receipt className="w-4 h-4 text-primary" />
+            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-foreground">
+              Factures & Règlements
+            </h1>
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground pl-10">
+            {loading
+              ? 'Chargement des factures...'
+              : searchTerm.trim()
+                ? `${filteredInvoices.length} résultat(s) sur ${invoices.length} facture(s)`
+                : `${invoices.length} facture(s) enregistrée(s)`
+            }
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <Button onClick={fetchInvoices} variant="outline" size="sm" className="gap-2 h-9">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={fetchInvoices}
+            disabled={loading}
+            className="h-9 w-9 flex-shrink-0"
+            title="Actualiser"
+          >
             <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
-            Actualiser
           </Button>
-          <Button onClick={() => setShowProformaModal(true)} size="sm" className="gap-2 shadow-md shadow-primary/20 h-9">
+
+          <Button
+            onClick={() => setShowProformaModal(true)}
+            className="gap-2 shadow-lg shadow-primary/20 hover:shadow-primary/30 transition-shadow h-9"
+          >
             <Plus className="w-4 h-4" />
-            Nouveau Devis Proforma
+            Nouvelle Proforma
           </Button>
         </div>
       </div>
 
-      {/* Summary Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
-        <div className="p-4 sm:p-5 rounded-2xl border border-border bg-card shadow-sm space-y-1.5">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Chiffre d&apos;Affaires Facturé</p>
+      {/* KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Émis (TTC)</p>
           <p className="text-xl sm:text-2xl font-bold text-foreground tabular-nums">{totalFacture.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
-          <p className="text-[11px] text-muted-foreground">Primes émettant des factures standard</p>
+          <p className="text-[11px] text-muted-foreground">Factures standard</p>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 shadow-sm space-y-1.5">
-          <p className="text-xs font-semibold text-emerald-500 uppercase tracking-wider">Encaissements Réglés</p>
-          <p className="text-xl sm:text-2xl font-bold text-emerald-400 tabular-nums">{totalRegle.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
-          <p className="text-[11px] text-emerald-500/70">Paiements encaissés</p>
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total Encaissé</p>
+          <p className="text-xl sm:text-2xl font-bold text-green-400 tabular-nums">{totalRegle.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
+          <p className="text-[11px] text-green-500/70">Règlements reçus</p>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl border border-amber-500/20 bg-amber-500/5 shadow-sm space-y-1.5">
-          <p className="text-xs font-semibold text-amber-500 uppercase tracking-wider">Reste à Recouvrer</p>
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Reste à Recouvrer</p>
           <p className="text-xl sm:text-2xl font-bold text-amber-400 tabular-nums">{totalRestant.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
-          <p className="text-[11px] text-amber-500/70">Encaissements en attente</p>
+          <p className="text-[11px] text-amber-500/70">Solde impayé</p>
         </div>
 
-        <div className="p-4 sm:p-5 rounded-2xl border border-purple-500/20 bg-purple-500/5 shadow-sm space-y-1.5">
-          <p className="text-xs font-semibold text-purple-400 uppercase tracking-wider">Factures d&apos;Avoir</p>
+        <div className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm space-y-1">
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Avoirs Émis</p>
           <p className="text-xl sm:text-2xl font-bold text-purple-300 tabular-nums">{totalAvoirs.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH</p>
           <p className="text-[11px] text-purple-400/70">Annulations & régularisations</p>
         </div>
@@ -205,15 +256,25 @@ export default function FacturesPage() {
       {/* Filters & Search Controls */}
       <div className="p-4 rounded-2xl border border-border bg-card shadow-sm space-y-4">
         <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3.5 sm:gap-4">
-          {/* Search Input */}
+          {/* Instant Live Search Input */}
           <div className="relative flex-1 w-full min-w-0">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <Input
-              placeholder="Rechercher par N° Facture, Client ou N° Police..."
+              placeholder="Rechercher par n° facture, client, police, statut, montant..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 h-10 bg-muted/30 w-full"
+              className="pl-10 pr-9 h-9 bg-muted/30 w-full text-xs"
             />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors p-0.5 rounded"
+                title="Effacer la recherche"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {/* Type Filter */}
