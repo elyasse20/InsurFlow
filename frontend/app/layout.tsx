@@ -14,11 +14,14 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: 'InsurFlow — Gestion des Assurances',
-  description: 'Système professionnel de gestion de courtage et d\'assurances',
+  description: "Plateforme de gestion de courtage d'assurance",
   icons: {
-    icon: '/icon.png',
-    shortcut: '/icon.png',
-    apple: '/icon.png',
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/logo.png', type: 'image/png' },
+    ],
+    shortcut: '/favicon.ico',
+    apple: '/logo.png',
   },
 };
 
