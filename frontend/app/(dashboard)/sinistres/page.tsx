@@ -12,20 +12,12 @@ import {
   Clock,
   Search,
   Filter,
-  Plus,
   RefreshCw,
   Eye,
   Trash2,
-  ChevronDown,
-  Building2,
-  Calendar,
-  AlertCircle,
-  FileCheck2,
   X,
   Sparkles,
-  ArrowUpDown,
   Check,
-  Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,6 +29,7 @@ import {
   DialogHeader,
 } from '@/components/ui/dialog';
 import ClaimsAnalyzerModal from '@/components/ai/ClaimsAnalyzerModal';
+import Pagination from '@/components/Pagination';
 import api from '@/lib/api';
 import { formatAmount, formatDate } from '@/lib/format';
 import { Sinistre, SinistreStatus, SinistresStats } from '@/types';
@@ -51,6 +44,10 @@ export default function SinistresPage() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [riskFilter, setRiskFilter] = useState<string>('ALL');
+
+  // Pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   // Detail Modal
   const [selectedSinistre, setSelectedSinistre] = useState<Sinistre | null>(null);
@@ -155,6 +152,25 @@ export default function SinistresPage() {
       return true;
     });
   }, [sinistres, search, statusFilter, riskFilter]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search, statusFilter, riskFilter]);
+
+  // Totals & Pagination
+  const totalPages = Math.max(1, Math.ceil(filteredSinistres.length / pageSize));
+
+  useEffect(() => {
+    if (currentPage > totalPages && totalPages > 0) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  const paginatedSinistres = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredSinistres.slice(start, start + pageSize);
+  }, [filteredSinistres, currentPage, pageSize]);
 
   // Helper status badge
   const getStatusBadge = (status: SinistreStatus) => {
@@ -450,7 +466,7 @@ export default function SinistresPage() {
                   </td>
                 </tr>
               ) : (
-                filteredSinistres.map((s) => (
+                paginatedSinistres.map((s) => (
                   <tr
                     key={s.id}
                     className="hover:bg-muted/20 transition-colors group cursor-default"
@@ -562,6 +578,21 @@ export default function SinistresPage() {
           </table>
         </div>
       </div>
+
+      {/* ── Standardized Pagination Bar ────────────────────────────────────── */}
+      <Pagination
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalItems={filteredSinistres.length}
+        pageSize={pageSize}
+        pageSizeOptions={[5, 10, 20, 50]}
+        onPageChange={setCurrentPage}
+        onPageSizeChange={(newSize) => {
+          setPageSize(newSize);
+          setCurrentPage(1);
+        }}
+        itemLabel="sinistres"
+      />
 
       {/* ── Detail Modal ────────────────────────────────────────────────────── */}
       <Dialog open={detailModalOpen} onOpenChange={setDetailModalOpen}>
