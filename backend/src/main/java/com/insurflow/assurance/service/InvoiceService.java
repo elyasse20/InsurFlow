@@ -90,6 +90,16 @@ public class InvoiceService {
         Invoice original = invoiceRepository.findById(invoiceId)
                 .orElseThrow(() -> new IllegalArgumentException("Invoice not found: " + invoiceId));
 
+        // Prevent duplicate credit note creation for the same invoice
+        Optional<Invoice> existingAvoir = invoiceRepository.findByTypeOrderByCreatedAtDesc(InvoiceType.AVOIR).stream()
+                .filter(a -> (a.getNotes() != null && a.getNotes().contains(original.getInvoiceNumber())) ||
+                             (original.getOperationId() != null && !original.getOperationId().isBlank() && original.getOperationId().equals(a.getOperationId())))
+                .findFirst();
+        if (existingAvoir.isPresent()) {
+            log.info("Credit note already exists for invoice {}: {}", original.getInvoiceNumber(), existingAvoir.get().getInvoiceNumber());
+            return existingAvoir.get();
+        }
+
         long count = invoiceRepository.countByType(InvoiceType.AVOIR) + 1;
         String avoirNumber = String.format("AVR-2026-%04d", count);
 
@@ -111,6 +121,16 @@ public class InvoiceService {
                 .notes("Facture d'Avoir annulant la facture " + original.getInvoiceNumber())
                 .createdAt(LocalDateTime.now())
                 .build();
+
+        // Update original invoice notes to reflect regularization
+        String noteSuffix = "Régularisée par l'avoir " + avoirNumber;
+        if (original.getNotes() == null || original.getNotes().isBlank()) {
+            original.setNotes(noteSuffix);
+        } else if (!original.getNotes().contains("Régularisée")) {
+            original.setNotes(original.getNotes() + " | " + noteSuffix);
+        }
+        original.setRemainingAmount(0);
+        invoiceRepository.save(original);
 
         return invoiceRepository.save(creditNote);
     }

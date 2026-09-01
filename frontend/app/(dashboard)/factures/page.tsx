@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { downloadInvoicePdf } from '@/lib/export';
 import { Invoice } from '@/types';
 import {
-  Download, Plus, Search, RefreshCw, X, Receipt, AlertTriangle, FileX2, AlertCircle, Loader2
+  Download, Plus, Search, RefreshCw, X, Receipt, AlertTriangle, FileX2, AlertCircle, Loader2, CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -65,6 +65,36 @@ export default function FacturesPage() {
     }
   }, []);
 
+  // Map each standard invoice ID to its associated Avoir (Credit Note) if one exists
+  const regularizedInvoicesMap = React.useMemo(() => {
+    const map = new Map<string, Invoice>();
+    const avoirs = invoices.filter((i) => i.type === 'AVOIR');
+
+    invoices
+      .filter((i) => i.type === 'STANDARD')
+      .forEach((stdInv) => {
+        const matchingAvoir = avoirs.find((av) => {
+          // Direct note reference to invoice number (e.g. "Facture d'Avoir annulant la facture FAC-2026-0001")
+          if (av.notes && stdInv.invoiceNumber && av.notes.includes(stdInv.invoiceNumber)) {
+            return true;
+          }
+          // Matching operationId
+          if (stdInv.operationId && av.operationId && av.operationId === stdInv.operationId) {
+            return true;
+          }
+          // Standard invoice notes referencing regularized by avoir
+          if (stdInv.notes && stdInv.notes.toLowerCase().includes('avoir') && av.invoiceNumber && stdInv.notes.includes(av.invoiceNumber)) {
+            return true;
+          }
+          return false;
+        });
+        if (matchingAvoir) {
+          map.set(stdInv.id, matchingAvoir);
+        }
+      });
+    return map;
+  }, [invoices]);
+
   // Filtered invoices (multi-column live search)
   const filteredInvoices = React.useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -72,6 +102,12 @@ export default function FacturesPage() {
 
     return invoices.filter((inv) => {
       if (terms.length > 0) {
+        const isRegularized = regularizedInvoicesMap.has(inv.id);
+        const associatedAvoir = regularizedInvoicesMap.get(inv.id);
+        const regularizedLabel = isRegularized
+          ? `régularisée regularisee avoir émis avoir emis annulee ${associatedAvoir?.invoiceNumber || ''}`
+          : '';
+
         const statusMap: Record<string, string> = {
           PAID: 'payé paye reglé paid',
           PARTIAL: 'partiel partial',
@@ -93,6 +129,7 @@ export default function FacturesPage() {
           ${typeMap[inv.type] || ''} 
           ${inv.status || ''} 
           ${statusMap[inv.status] || ''} 
+          ${regularizedLabel}
           ${inv.amountTTC || ''} 
           ${inv.paidAmount || ''} 
           ${inv.remainingAmount || ''} 
@@ -108,7 +145,7 @@ export default function FacturesPage() {
 
       return matchesType && matchesStatus;
     });
-  }, [invoices, searchTerm, selectedType, selectedStatus]);
+  }, [invoices, searchTerm, selectedType, selectedStatus, regularizedInvoicesMap]);
 
   // Reset pagination on filter change
   useEffect(() => {
@@ -139,7 +176,7 @@ export default function FacturesPage() {
     .reduce((sum, i) => sum + i.paidAmount, 0);
 
   const totalRestant = invoices
-    .filter((i) => i.type === 'STANDARD')
+    .filter((i) => i.type === 'STANDARD' && !regularizedInvoicesMap.has(i.id))
     .reduce((sum, i) => sum + i.remainingAmount, 0);
 
   const totalAvoirs = Math.abs(
@@ -163,6 +200,9 @@ export default function FacturesPage() {
 
   // Handle Credit Note (Avoir) modal opening
   const handleOpenAvoirModal = (inv: Invoice) => {
+    if (regularizedInvoicesMap.has(inv.id)) {
+      return; // Guard against opening modal if invoice already has an avoir
+    }
     setSelectedInvoiceForAvoir(inv);
     setAvoirError(null);
   };
@@ -365,91 +405,153 @@ export default function FacturesPage() {
                   </td>
                 </tr>
               ) : (
-                paginatedInvoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-muted/30 transition-colors">
-                    {/* Invoice Number */}
-                    <td className="py-3.5 px-4 font-mono font-bold text-foreground whitespace-nowrap">
-                      {inv.invoiceNumber}
-                    </td>
+                paginatedInvoices.map((inv) => {
+                  const isRegularized = regularizedInvoicesMap.has(inv.id);
+                  const associatedAvoir = regularizedInvoicesMap.get(inv.id);
 
-                    {/* Date */}
-                    <td className="py-3.5 px-4 text-muted-foreground whitespace-nowrap">
-                      {inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('fr-FR') : 'N/A'}
-                    </td>
-
-                    {/* Type Badge */}
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <span
-                        className={cn(
-                          'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border',
-                          inv.type === 'STANDARD' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
-                          inv.type === 'PROFORMA' && 'bg-purple-500/10 text-purple-400 border-purple-500/20',
-                          inv.type === 'AVOIR' && 'bg-rose-500/10 text-rose-400 border-rose-500/20'
-                        )}
-                      >
-                        {inv.type}
-                      </span>
-                    </td>
-
-                    {/* Client Name */}
-                    <td className="py-3.5 px-4 font-semibold text-foreground truncate max-w-[150px]">
-                      {inv.clientName}
-                    </td>
-
-                    {/* Policy & Category */}
-                    <td className="py-3.5 px-4 whitespace-nowrap">
-                      <p className="font-mono text-xs text-foreground font-medium">{inv.policyNumber || '-'}</p>
-                      <p className="text-[10px] text-muted-foreground">{inv.category || 'Assurance'}</p>
-                    </td>
-
-                    {/* Amount TTC */}
-                    <td className="py-3.5 px-4 text-right font-mono font-bold text-foreground whitespace-nowrap">
-                      {inv.amountTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH
-                    </td>
-
-                    {/* Status Badge */}
-                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                      <span
-                        className={cn(
-                          'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border',
-                          inv.status === 'PAID' && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-                          inv.status === 'PARTIAL' && 'bg-amber-500/10 text-amber-400 border-amber-500/20',
-                          inv.status === 'UNPAID' && 'bg-red-500/10 text-red-400 border-red-500/20'
-                        )}
-                      >
-                        {inv.status === 'PAID' ? 'PAYÉ' : inv.status === 'PARTIAL' ? 'PARTIEL' : 'IMPAYÉ'}
-                      </span>
-                    </td>
-
-                    {/* Actions */}
-                    <td className="py-3.5 px-4 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-2">
-                        <Button
-                          onClick={() => handleDownloadPdf(inv.id, inv.invoiceNumber)}
-                          disabled={downloadingId === inv.id}
-                          size="sm"
-                          variant="outline"
-                          className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
-                        >
-                          <Download className={cn("w-3.5 h-3.5", downloadingId === inv.id && "animate-bounce")} />
-                          {downloadingId === inv.id ? 'PDF...' : 'PDF'}
-                        </Button>
-
-                        {inv.type === 'STANDARD' && (
-                          <Button
-                            onClick={() => handleOpenAvoirModal(inv)}
-                            size="sm"
-                            variant="ghost"
-                            className="h-8 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
-                            title="Générer Facture d'Avoir"
+                  return (
+                    <tr
+                      key={inv.id}
+                      className={cn(
+                        "transition-colors",
+                        isRegularized ? "bg-muted/15 hover:bg-muted/30 opacity-80" : "hover:bg-muted/30"
+                      )}
+                    >
+                      {/* Invoice Number */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <div className="flex flex-col gap-0.5">
+                          <span
+                            className={cn(
+                              "font-mono font-bold",
+                              isRegularized
+                                ? "text-muted-foreground line-through decoration-muted-foreground/60"
+                                : "text-foreground"
+                            )}
                           >
-                            Avoir
-                          </Button>
+                            {inv.invoiceNumber}
+                          </span>
+                          {isRegularized && associatedAvoir && (
+                            <span className="text-[10px] text-purple-400 font-mono flex items-center gap-1 font-medium">
+                              ↳ Avoir {associatedAvoir.invoiceNumber}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Date */}
+                      <td className="py-3.5 px-4 text-muted-foreground whitespace-nowrap">
+                        {inv.createdAt ? new Date(inv.createdAt).toLocaleDateString('fr-FR') : 'N/A'}
+                      </td>
+
+                      {/* Type Badge */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <span
+                          className={cn(
+                            'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border',
+                            inv.type === 'STANDARD' && 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                            inv.type === 'PROFORMA' && 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+                            inv.type === 'AVOIR' && 'bg-rose-500/10 text-rose-400 border-rose-500/20'
+                          )}
+                        >
+                          {inv.type}
+                        </span>
+                      </td>
+
+                      {/* Client Name */}
+                      <td
+                        className={cn(
+                          "py-3.5 px-4 truncate max-w-[150px]",
+                          isRegularized ? "text-muted-foreground font-medium" : "font-semibold text-foreground"
                         )}
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      >
+                        {inv.clientName}
+                      </td>
+
+                      {/* Policy & Category */}
+                      <td className="py-3.5 px-4 whitespace-nowrap">
+                        <p className="font-mono text-xs text-foreground font-medium">{inv.policyNumber || '-'}</p>
+                        <p className="text-[10px] text-muted-foreground">{inv.category || 'Assurance'}</p>
+                      </td>
+
+                      {/* Amount TTC */}
+                      <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                        <span
+                          className={cn(
+                            "font-mono",
+                            isRegularized
+                              ? "font-normal text-muted-foreground line-through"
+                              : "font-bold text-foreground"
+                          )}
+                        >
+                          {inv.amountTTC.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} DH
+                        </span>
+                      </td>
+
+                      {/* Status Badge */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        {isRegularized ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border bg-purple-500/10 text-purple-400 border-purple-500/25 shadow-2xs"
+                            title={`Facture régularisée par l'avoir ${associatedAvoir?.invoiceNumber || ''}`}
+                          >
+                            <CheckCircle2 className="w-3 h-3 text-purple-400" />
+                            Régularisée
+                          </span>
+                        ) : (
+                          <span
+                            className={cn(
+                              'px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border',
+                              inv.status === 'PAID' && 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                              inv.status === 'PARTIAL' && 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                              inv.status === 'UNPAID' && 'bg-red-500/10 text-red-400 border-red-500/20'
+                            )}
+                          >
+                            {inv.status === 'PAID' ? 'PAYÉ' : inv.status === 'PARTIAL' ? 'PARTIEL' : 'IMPAYÉ'}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          <Button
+                            onClick={() => handleDownloadPdf(inv.id, inv.invoiceNumber)}
+                            disabled={downloadingId === inv.id}
+                            size="sm"
+                            variant="outline"
+                            className="h-8 gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10"
+                          >
+                            <Download className={cn("w-3.5 h-3.5", downloadingId === inv.id && "animate-bounce")} />
+                            {downloadingId === inv.id ? 'PDF...' : 'PDF'}
+                          </Button>
+
+                          {inv.type === 'STANDARD' && (
+                            isRegularized ? (
+                              <span
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium bg-purple-500/10 text-purple-400 border border-purple-500/20 whitespace-nowrap select-none cursor-default"
+                                title={`Avoir émis : ${associatedAvoir?.invoiceNumber || 'Facture régularisée'}`}
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5 text-purple-400" />
+                                Avoir émis
+                              </span>
+                            ) : (
+                              <Button
+                                onClick={() => handleOpenAvoirModal(inv)}
+                                disabled={isSubmittingAvoir}
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+                                title="Générer Facture d'Avoir"
+                              >
+                                Avoir
+                              </Button>
+                            )
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>
