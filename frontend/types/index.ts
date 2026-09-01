@@ -293,3 +293,68 @@ export interface NotificationItem {
   isRead: boolean;
   createdAt: string;
 }
+
+// ─── Sinistres (Claims Management) ────────────────────────────────────────────
+export type SinistreStatus = 'DECLARE' | 'EN_EXPERTISE' | 'INDEMNISE' | 'CLOTURE' | 'REFUSE';
+
+export interface Sinistre {
+  id: string;
+  sinistreNumber: string;
+  clientName: string;
+  policyNumber: string;
+  compagne?: string;
+  category?: string;
+  incidentDate: string;
+  declarationDate: string;
+  claimText?: string;
+  status: SinistreStatus;
+  fraudRiskScore: number;
+  fraudRiskLevel: FraudRiskLevel;
+  liabilityAssessment?: string;
+  liabilityRate?: number;
+  estimatedDamage: number;
+  deductible: number;
+  netPayout: number;
+  riskFlags?: string[];
+  recommendedActions?: string[];
+  executiveSummary?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface CreateSinistreRequest {
+  sinistreNumber?: string;
+  clientName: string;
+  policyNumber: string;
+  compagne?: string;
+  category?: string;
+  incidentDate: string;
+  declarationDate?: string;
+  claimText?: string;
+  status?: SinistreStatus;
+  fraudRiskScore?: number;
+  fraudRiskLevel?: FraudRiskLevel;
+  liabilityAssessment?: string;
+  liabilityRate?: number;
+  estimatedDamage?: number;
+  deductible?: number;
+  netPayout?: number;
+  riskFlags?: string[];
+  recommendedActions?: string[];
+  executiveSummary?: string;
+  notes?: string;
+}
+
+export interface SinistresStats {
+  total: number;
+  declare: number;
+  enExpertise: number;
+  indemnise: number;
+  cloture: number;
+  refuse: number;
+  totalDamage: number;
+  totalNetPayout: number;
+  avgFraudScore: number;
+}
+

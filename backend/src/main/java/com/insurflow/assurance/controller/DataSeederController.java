@@ -25,4 +25,16 @@ public class DataSeederController {
         Map<String, Object> response = dataSeederService.seedMockData(reset);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/migrate-policies")
+    public ResponseEntity<Map<String, Object>> migratePoliciesPost() {
+        Map<String, Object> response = dataSeederService.migrateAndNormalizePolicyNumbers();
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/migrate-policies")
+    public ResponseEntity<Map<String, Object>> migratePoliciesGet() {
+        Map<String, Object> response = dataSeederService.migrateAndNormalizePolicyNumbers();
+        return ResponseEntity.ok(response);
+    }
 }

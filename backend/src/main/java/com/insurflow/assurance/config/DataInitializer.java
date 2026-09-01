@@ -28,7 +28,9 @@ public class DataInitializer implements CommandLineRunner {
     private final CategoryRepository categoryRepository;
     private final ParametreRepository parametreRepository;
     private final TvaRepository tvaRepository;
+    private final ClientRepository clientRepository;
     private final ProductionRepository productionRepository;
+    private final SinistreRepository sinistreRepository;
     private final DataSeederService dataSeederService;
     private final PasswordEncoder passwordEncoder;
 
@@ -50,8 +52,16 @@ public class DataInitializer implements CommandLineRunner {
         seedTvas();
 
         if (productionRepository.count() == 0) {
-            log.info("Production database is empty. Auto-seeding InsurFlow mock data for 2026...");
+            log.info("Production database is empty. Auto-seeding InsurFlow mock data across 2023, 2024, 2025, 2026...");
             dataSeederService.seedMockData(false);
+        } else {
+            log.info("Checking and normalizing policy numbers into standardized POL-{COMPAGNIE}-{ANNEE}-{00X} format...");
+            dataSeederService.migrateAndNormalizePolicyNumbers();
+
+            if (sinistreRepository.count() == 0) {
+                log.info("Sinistres collection is empty. Seeding demonstration claims...");
+                dataSeederService.seedSinistres(clientRepository.findAll(), productionRepository.findAll());
+            }
         }
     }
 

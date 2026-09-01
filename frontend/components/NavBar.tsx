@@ -8,6 +8,7 @@ import {
   Users, Shield, LogOut,
   DollarSign, FileText, FileCheck,
   LayoutDashboard, ChevronRight, Sun, Moon, Database, X,
+  ShieldAlert,
 } from 'lucide-react';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
@@ -21,6 +22,7 @@ const navGroups = [
       { href: '/clients',        label: 'Clients',       icon: Users,           adminOnly: false },
       { href: '/operations',     label: 'Opérations',    icon: FileText,        adminOnly: false },
       { href: '/factures',       label: 'Factures',      icon: FileCheck,       adminOnly: false },
+      { href: '/sinistres',      label: 'Sinistres',     icon: ShieldAlert,     adminOnly: false },
       { href: '/compagnes',      label: 'Compagnes',     icon: Shield,          adminOnly: false },
       { href: '/credit-history', label: 'Crédits',       icon: DollarSign,      adminOnly: false },
     ],

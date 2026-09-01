@@ -1,6 +1,7 @@
 package com.insurflow.assurance.service;
 
 import com.insurflow.assurance.model.*;
+import com.insurflow.assurance.model.Sinistre.SinistreStatus;
 import com.insurflow.assurance.repository.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,9 +23,148 @@ public class DataSeederService {
     private final ProductionRepository productionRepository;
     private final ReglementRepository reglementRepository;
     private final InvoiceRepository invoiceRepository;
+    private final NotificationRepository notificationRepository;
+    private final SinistreRepository sinistreRepository;
     private final ParametreRepository parametreRepository;
     private final TvaRepository tvaRepository;
     private final InvoiceService invoiceService;
+
+    /**
+     * Extracts a clean, normalized trigram or uppercase code from a company name.
+     * e.g. "AtlantaSanad Assurance" -> "ATLANTA", "Sanlam Maroc" -> "SANLAM", "Wafa Assurance" -> "WAFA"
+     */
+    public static String extractCompanyCode(String companyName) {
+        if (companyName == null || companyName.trim().isEmpty()) return "CIE";
+        String clean = companyName.toUpperCase().trim();
+        if (clean.contains("ATLANTA")) return "ATLANTA";
+        if (clean.contains("SANLAM")) return "SANLAM";
+        if (clean.contains("WAFA")) return "WAFA";
+        if (clean.contains("RMA")) return "RMA";
+        if (clean.contains("ALLIANZ")) return "ALLIANZ";
+        if (clean.contains("AXA")) return "AXA";
+        if (clean.contains("TAOUNATE")) return "TAOUNATE";
+        if (clean.contains("CHAABI")) return "CHAABI";
+
+        String[] parts = clean.replaceAll("[^A-Z0-9\\s]", "").trim().split("\\s+");
+        return (parts.length > 0 && parts[0].length() >= 2) ? parts[0] : "CIE";
+    }
+
+    /**
+     * Normalizes and migrates all existing policy numbers across MongoDB collections
+     * (productions, regelements, invoices, notifications) into the standardized format
+     * POL-{COMPAGNIE}-{ANNEE}-{00X}.
+     *
+     * @return Map with migration statistics.
+     */
+    public Map<String, Object> migrateAndNormalizePolicyNumbers() {
+        log.info("Starting Policy Number Migration to standardized nomenclature POL-{COMPAGNIE}-{ANNEE}-{00X}...");
+
+        List<Production> allProductions = productionRepository.findAll();
+        // Sort chronologically by dateEff / createdAt
+        allProductions.sort((p1, p2) -> {
+            LocalDate d1 = p1.getDateEff() != null ? p1.getDateEff() : LocalDate.of(p1.getExercice() != null ? p1.getExercice() : 2026, 1, 1);
+            LocalDate d2 = p2.getDateEff() != null ? p2.getDateEff() : LocalDate.of(p2.getExercice() != null ? p2.getExercice() : 2026, 1, 1);
+            int cmp = d1.compareTo(d2);
+            if (cmp != 0) return cmp;
+            if (p1.getCreatedAt() != null && p2.getCreatedAt() != null) {
+                return p1.getCreatedAt().compareTo(p2.getCreatedAt());
+            }
+            return (p1.getId() != null && p2.getId() != null) ? p1.getId().compareTo(p2.getId()) : 0;
+        });
+
+        Map<String, Integer> companyYearCounters = new HashMap<>();
+        Map<String, String> prodIdToNewPolicy = new HashMap<>();
+        Map<String, String> oldPolicyToNewPolicy = new HashMap<>();
+
+        int prodsMigrated = 0;
+
+        for (Production prod : allProductions) {
+            String compCode = extractCompanyCode(prod.getCompagne());
+            int year = prod.getExercice() != null ? prod.getExercice() : (prod.getDateEff() != null ? prod.getDateEff().getYear() : 2026);
+
+            String key = compCode + "-" + year;
+            int seq = companyYearCounters.compute(key, (k, v) -> v == null ? 1 : v + 1);
+            String targetPolicy = String.format("POL-%s-%04d-%03d", compCode, year, seq);
+
+            String oldPolicy = prod.getNumpolice();
+            prodIdToNewPolicy.put(prod.getId(), targetPolicy);
+            if (oldPolicy != null && !oldPolicy.trim().isEmpty()) {
+                oldPolicyToNewPolicy.put(oldPolicy, targetPolicy);
+            }
+
+            if (!targetPolicy.equals(oldPolicy)) {
+                prod.setNumpolice(targetPolicy);
+                productionRepository.save(prod);
+                prodsMigrated++;
+            }
+        }
+
+        // Cascade to Reglements
+        int reglementsMigrated = 0;
+        List<Reglement> allReglements = reglementRepository.findAll();
+        for (Reglement reg : allReglements) {
+            String newPolicy = null;
+            if (reg.getProduction() != null && prodIdToNewPolicy.containsKey(reg.getProduction().getId())) {
+                newPolicy = prodIdToNewPolicy.get(reg.getProduction().getId());
+            } else if (reg.getNumpolice() != null && oldPolicyToNewPolicy.containsKey(reg.getNumpolice())) {
+                newPolicy = oldPolicyToNewPolicy.get(reg.getNumpolice());
+            }
+
+            if (newPolicy != null && !newPolicy.equals(reg.getNumpolice())) {
+                reg.setNumpolice(newPolicy);
+                reglementRepository.save(reg);
+                reglementsMigrated++;
+            }
+        }
+
+        // Cascade to Invoices
+        int invoicesMigrated = 0;
+        List<Invoice> allInvoices = invoiceRepository.findAll();
+        for (Invoice inv : allInvoices) {
+            String newPolicy = null;
+            if (inv.getOperationId() != null && prodIdToNewPolicy.containsKey(inv.getOperationId())) {
+                newPolicy = prodIdToNewPolicy.get(inv.getOperationId());
+            } else if (inv.getPolicyNumber() != null && oldPolicyToNewPolicy.containsKey(inv.getPolicyNumber())) {
+                newPolicy = oldPolicyToNewPolicy.get(inv.getPolicyNumber());
+            }
+
+            if (newPolicy != null && !newPolicy.equals(inv.getPolicyNumber())) {
+                inv.setPolicyNumber(newPolicy);
+                invoiceRepository.save(inv);
+                invoicesMigrated++;
+            }
+        }
+
+        // Cascade to Notifications
+        int notificationsMigrated = 0;
+        List<Notification> allNotifs = notificationRepository.findAll();
+        for (Notification notif : allNotifs) {
+            String newPolicy = null;
+            if (notif.getReferenceId() != null && prodIdToNewPolicy.containsKey(notif.getReferenceId())) {
+                newPolicy = prodIdToNewPolicy.get(notif.getReferenceId());
+            } else if (notif.getPolicyNumber() != null && oldPolicyToNewPolicy.containsKey(notif.getPolicyNumber())) {
+                newPolicy = oldPolicyToNewPolicy.get(notif.getPolicyNumber());
+            }
+
+            if (newPolicy != null && !newPolicy.equals(notif.getPolicyNumber())) {
+                notif.setPolicyNumber(newPolicy);
+                notificationRepository.save(notif);
+                notificationsMigrated++;
+            }
+        }
+
+        log.info("✓ Policy number migration completed! Total: {} productions ({} updated), {} reglements, {} invoices, {} notifications.",
+                allProductions.size(), prodsMigrated, reglementsMigrated, invoicesMigrated, notificationsMigrated);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("status", "SUCCESS");
+        result.put("totalProductions", allProductions.size());
+        result.put("productionsMigrated", prodsMigrated);
+        result.put("reglementsMigrated", reglementsMigrated);
+        result.put("invoicesMigrated", invoicesMigrated);
+        result.put("notificationsMigrated", notificationsMigrated);
+        return result;
+    }
 
     /**
      * Seeds complete realistic Moroccan insurance data into MongoDB for multi-exercices (2023, 2024, 2025, 2026).
@@ -35,6 +175,8 @@ public class DataSeederService {
         log.info("Starting Multi-Exercice DataSeeder for InsurFlow (2023, 2024, 2025, 2026)... resetExisting={}", resetExisting);
 
         if (resetExisting) {
+            sinistreRepository.deleteAll();
+            notificationRepository.deleteAll();
             invoiceRepository.deleteAll();
             reglementRepository.deleteAll();
             productionRepository.deleteAll();
@@ -57,7 +199,7 @@ public class DataSeederService {
         // 4. Seed Clients (Particuliers & Sociétés)
         List<Client> clients = seedClients();
 
-        // 5. Seed Multi-Exercices
+        // 5. Seed Multi-Exercices Productions & Reglements
         List<Production> allProductions = new ArrayList<>();
         List<Reglement> allReglements = new ArrayList<>();
 
@@ -75,8 +217,11 @@ public class DataSeederService {
         // Exercice 2026: ~20 operations, total ~350 000 DH, ~65% settled
         seedExercice(2026, 20, 350_000.0, 0.65, natures, categories, compagnes, clients, allProductions, allReglements, random);
 
-        log.info("✓ DataSeeder completed! Created {} clients, {} compagnes, {} productions, {} reglements.",
-                clients.size(), compagnes.size(), allProductions.size(), allReglements.size());
+        // 6. Seed Realistic Demonstration Sinistres
+        List<Sinistre> sinistres = seedSinistres(clients, allProductions);
+
+        log.info("✓ DataSeeder completed! Created {} clients, {} compagnes, {} productions, {} reglements, {} sinistres.",
+                clients.size(), compagnes.size(), allProductions.size(), allReglements.size(), sinistres.size());
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("status", "SUCCESS");
@@ -85,6 +230,7 @@ public class DataSeederService {
         result.put("clientsCreated", clients.size());
         result.put("productionsCreated", allProductions.size());
         result.put("reglementsCreated", allReglements.size());
+        result.put("sinistresCreated", sinistres.size());
         return result;
     }
 
@@ -108,7 +254,8 @@ public class DataSeederService {
         int opsPerMonthBase = totalOperations / 12;
         int remainingOps = totalOperations % 12;
 
-        int policyIndex = 1;
+        Map<String, Integer> compPolicyCounters = new HashMap<>();
+        int invoiceIndex = 1;
 
         for (int month = 1; month <= 12; month++) {
             int opsInMonth = opsPerMonthBase + (month <= remainingOps ? 1 : 0);
@@ -128,8 +275,12 @@ public class DataSeederService {
                         ? client.getPrenom() + " " + client.getNom()
                         : client.getNom();
 
-                String numpolice = String.format("POL-%04d-%03d", year, policyIndex);
-                String numFacture = String.format("FAC-%04d-%03d", year, policyIndex);
+                String compCode = extractCompanyCode(compagne.getCompagneName());
+                int compSeq = compPolicyCounters.compute(compCode + "-" + year, (k, v) -> v == null ? 1 : v + 1);
+
+                // Standardized Policy Number Format: POL-{COMPAGNIE}-{ANNEE}-{00X}
+                String numpolice = String.format("POL-%s-%04d-%03d", compCode, year, compSeq);
+                String numFacture = String.format("FAC-%04d-%03d", year, invoiceIndex);
 
                 // Multiplier based on category
                 double catMultiplier = 1.0;
@@ -172,7 +323,7 @@ public class DataSeederService {
                         .category(category.getName())
                         .tvaRate(tvaRate)
                         .numpolice(numpolice)
-                        .ordre(String.valueOf(70000 + (year % 100) * 1000 + policyIndex))
+                        .ordre(String.valueOf(70000 + (year % 100) * 1000 + invoiceIndex))
                         .parameters(List.of(param))
                         .createdAt(createdAt)
                         .updatedAt(createdAt)
@@ -193,7 +344,7 @@ public class DataSeederService {
                             .mode(random.nextBoolean() ? Payment.PaymentMode.CHEQUE : Payment.PaymentMode.VIREMENT)
                             .montant(montantTotal)
                             .banque(banks[random.nextInt(banks.length)])
-                            .numero(String.format("CHQ-%06d", 800000 + (year % 100) * 1000 + policyIndex))
+                            .numero(String.format("CHQ-%06d", 800000 + (year % 100) * 1000 + invoiceIndex))
                             .dateEcheance(dateEff.plusDays(10))
                             .dateVirement(dateEff.plusDays(5))
                             .commentaire("Règlement intégral reçu")
@@ -206,7 +357,7 @@ public class DataSeederService {
                             .mode(Payment.PaymentMode.CHEQUE)
                             .montant(partialAmount)
                             .banque(banks[random.nextInt(banks.length)])
-                            .numero(String.format("CHQ-%06d", 800000 + (year % 100) * 1000 + policyIndex))
+                            .numero(String.format("CHQ-%06d", 800000 + (year % 100) * 1000 + invoiceIndex))
                             .dateEcheance(dateEff.plusDays(15))
                             .commentaire("Acompte partiel encaissé")
                             .build();
@@ -241,9 +392,169 @@ public class DataSeederService {
                     log.warn("Could not generate invoice for production {}: {}", savedProd.getId(), e.getMessage());
                 }
 
-                policyIndex++;
+                invoiceIndex++;
             }
         }
+    }
+
+    public List<Sinistre> seedSinistres(List<Client> clients, List<Production> productions) {
+        if (sinistreRepository.count() > 0) return sinistreRepository.findAll();
+
+        log.info("Seeding 6 realistic Moroccan insurance demonstration claims (Sinistres)...");
+
+        List<Sinistre> list = List.of(
+                // 1. Collision arrière autoroute (Non responsable 0%)
+                Sinistre.builder()
+                        .sinistreNumber("SIN-2026-0001")
+                        .clientName("Société Maghreb Contracting SA")
+                        .policyNumber("POL-ATLANTA-2026-001")
+                        .compagne("AtlantaSanad Assurance")
+                        .category("AUTOMOBILE")
+                        .incidentDate(LocalDate.of(2026, 8, 23))
+                        .declarationDate(LocalDate.of(2026, 8, 24))
+                        .claimText("Autoroute Casablanca - Rabat, PK 45. Fort ralentissement dû à un bouchon. Le véhicule A (notre assuré) s'est arrêté normalement. Le véhicule B (tiers immatriculé 12345-A-6) n'a pas maîtrisé son freinage et a percuté violemment l'arrière du véhicule A, le projetant sur le véhicule C. Constat amiable contradictoire signé avec mention choc arrière.")
+                        .status(SinistreStatus.EN_EXPERTISE)
+                        .fraudRiskScore(12)
+                        .fraudRiskLevel("FAIBLE")
+                        .liabilityAssessment("0% Responsable (Recours total 100% contre le véhicule suiveur tiers responsable du carambolage selon Convention CISA/CID).")
+                        .liabilityRate(0)
+                        .estimatedDamage(18500.0)
+                        .deductible(2000.0)
+                        .netPayout(16500.0)
+                        .riskFlags(List.of("Cinématique cohérente avec multiples témoins et tiers identifié.", "Constat amiable signé sans réserves."))
+                        .recommendedActions(List.of("Mandater un expert agréé ACAPS pour chiffrage contradictoire.", "Engager le recours subrogatoire contre la compagnie adverse.", "Enregistrer l'ouverture de dossier dans le module Sinistres."))
+                        .executiveSummary("Carambolage en chaîne sur autoroute. Assuré percuté à l'arrêt complet. Dégâts importants malle arrière et pare-chocs. Responsabilité adverse totale engagée.")
+                        .createdAt(LocalDateTime.of(2026, 8, 24, 10, 15))
+                        .updatedAt(LocalDateTime.of(2026, 8, 24, 10, 15))
+                        .build(),
+
+                // 2. Choc stationnement sans tiers (Responsable 100%)
+                Sinistre.builder()
+                        .sinistreNumber("SIN-2026-0002")
+                        .clientName("Youssef EL MANSOURI")
+                        .policyNumber("POL-SANLAM-2026-001")
+                        .compagne("Sanlam Maroc")
+                        .category("AUTOMOBILE")
+                        .incidentDate(LocalDate.of(2026, 8, 20))
+                        .declarationDate(LocalDate.of(2026, 8, 21))
+                        .claimText("Véhicule retrouvé avec une aile avant gauche et portière embouties sur le parking d'un supermarché à Casablanca. Aucun témoin ni tiers identifié. Déclaration effectuée sous 48h.")
+                        .status(SinistreStatus.DECLARE)
+                        .fraudRiskScore(42)
+                        .fraudRiskLevel("MOYEN")
+                        .liabilityAssessment("100% Responsable (Choc stationnement sans tiers identifié). Prise en charge au titre de la garantie Tous Risques sous déduction de la franchise contractuelle.")
+                        .liabilityRate(100)
+                        .estimatedDamage(9200.0)
+                        .deductible(1500.0)
+                        .netPayout(7700.0)
+                        .riskFlags(List.of("Accident sans tiers identifié en stationnement (Vérifier absence d'antériorité).", "Déclaration conforme dans le délai légal de 5 jours."))
+                        .recommendedActions(List.of("Exiger les photos horodatées des points de choc.", "Vérifier la validité de la garantie Tous Risques au jour du sinistre."))
+                        .executiveSummary("Dégâts carrosserie en stationnement sans tiers. Dossier éligible à indemnisation après franchise.")
+                        .createdAt(LocalDateTime.of(2026, 8, 21, 14, 30))
+                        .updatedAt(LocalDateTime.of(2026, 8, 21, 14, 30))
+                        .build(),
+
+                // 3. Avarie particulière transport maritime
+                Sinistre.builder()
+                        .sinistreNumber("SIN-2026-0003")
+                        .clientName("Atlas Logistique & Transport SARL")
+                        .policyNumber("POL-RMA-2026-001")
+                        .compagne("RMA (Royale Marocaine d'Assurances)")
+                        .category("MARITIME")
+                        .incidentDate(LocalDate.of(2026, 8, 14))
+                        .declarationDate(LocalDate.of(2026, 8, 15))
+                        .claimText("Avarie conteneur frigorifique lors de la traversée Algésiras - Tanger Med due à une forte houle. Infiltration d'eau de mer constatée au dépotage. Récépissé d'avaries contradictoire dressé par le commissaire d'avaries maritime.")
+                        .status(SinistreStatus.INDEMNISE)
+                        .fraudRiskScore(8)
+                        .fraudRiskLevel("FAIBLE")
+                        .liabilityAssessment("Non applicable (Avarie particulière maritime couverte par la police Faculté Maritime sous certificat d'avarie).")
+                        .liabilityRate(0)
+                        .estimatedDamage(42000.0)
+                        .deductible(5000.0)
+                        .netPayout(37000.0)
+                        .riskFlags(List.of("Certificat d'avaries maritimes officiel délivré par le Lloyd's Agent.", "Manifeste de bord et connaissement conformes."))
+                        .recommendedActions(List.of("Clôturer le règlement suite au virement de l'indemnité nette à l'assuré."))
+                        .executiveSummary("Avarie maritime constatée à Tanger Med. Indemnité de 37 000 DH versée après déduction de la franchise.")
+                        .createdAt(LocalDateTime.of(2026, 8, 15, 9, 0))
+                        .updatedAt(LocalDateTime.of(2026, 8, 28, 16, 45))
+                        .build(),
+
+                // 4. Dégât des eaux local commercial / Multirisque Pro
+                Sinistre.builder()
+                        .sinistreNumber("SIN-2026-0004")
+                        .clientName("Travaux Généraux Atlas SARL")
+                        .policyNumber("POL-WAFA-2026-001")
+                        .compagne("Wafa Assurance")
+                        .category("MULT")
+                        .incidentDate(LocalDate.of(2026, 8, 5))
+                        .declarationDate(LocalDate.of(2026, 8, 6))
+                        .claimText("Inondation des bureaux du rez-de-chaussée suite à la rupture de la conduite d'alimentation principale du bâtiment voisin. Matériel informatique et mobilier de bureau endommagés.")
+                        .status(SinistreStatus.INDEMNISE)
+                        .fraudRiskScore(14)
+                        .fraudRiskLevel("FAIBLE")
+                        .liabilityAssessment("0% Responsable (Dégât des eaux causé par un tiers contigu). Recours exercé et obtenu contre le syndic de copropriété adverse.")
+                        .liabilityRate(0)
+                        .estimatedDamage(65000.0)
+                        .deductible(8000.0)
+                        .netPayout(57000.0)
+                        .riskFlags(List.of("Constat d'huissier et rapport d'expertise en plomberie fournis."))
+                        .recommendedActions(List.of("Dossier régularisé et quittance de règlement signée."))
+                        .executiveSummary("Dégât des eaux bureaux d'Anfa Casablanca. Recours intégral abouti et indemnisation effectuée.")
+                        .createdAt(LocalDateTime.of(2026, 8, 6, 11, 20))
+                        .updatedAt(LocalDateTime.of(2026, 8, 25, 12, 10))
+                        .build(),
+
+                // 5. Refus de priorité à droite (Non responsable 0%)
+                Sinistre.builder()
+                        .sinistreNumber("SIN-2026-0005")
+                        .clientName("Karim BENJELLOUN")
+                        .policyNumber("POL-ALLIANZ-2026-001")
+                        .compagne("Allianz Maroc")
+                        .category("AUTOMOBILE")
+                        .incidentDate(LocalDate.of(2026, 7, 28))
+                        .declarationDate(LocalDate.of(2026, 7, 29))
+                        .claimText("Collision au carrefour Boulevard Mohammed V à Tanger. Le véhicule tiers n'a pas respecté la priorité à droite. Constat amiable contradictoire clair et signé par les deux conducteurs.")
+                        .status(SinistreStatus.CLOTURE)
+                        .fraudRiskScore(18)
+                        .fraudRiskLevel("FAIBLE")
+                        .liabilityAssessment("0% Responsable (Refus de priorité à droite par le véhicule adverse selon Barème ACAPS Cas N° 10 / Recours 100%).")
+                        .liabilityRate(0)
+                        .estimatedDamage(14000.0)
+                        .deductible(2500.0)
+                        .netPayout(11500.0)
+                        .riskFlags(List.of("Constat amiable régulier avec croquis non contesté."))
+                        .recommendedActions(List.of("Dossier clôturé après remboursement et recours auprès de la compagnie adverse."))
+                        .executiveSummary("Accident de carrefour avec priorité à droite respectée par l'assuré. Recours total perçu.")
+                        .createdAt(LocalDateTime.of(2026, 7, 29, 15, 0))
+                        .updatedAt(LocalDateTime.of(2026, 8, 20, 10, 0))
+                        .build(),
+
+                // 6. Suspicion déclaration tardive et antériorité
+                Sinistre.builder()
+                        .sinistreNumber("SIN-2026-0006")
+                        .clientName("Amina EL AMRANI")
+                        .policyNumber("POL-AXA-2026-001")
+                        .compagne("AXA Assurance Maroc")
+                        .category("AUTOMOBILE")
+                        .incidentDate(LocalDate.of(2026, 8, 10))
+                        .declarationDate(LocalDate.of(2026, 8, 26))
+                        .claimText("Déclaration d'un bris d'optiques de phares et vol partiel de nuit à Marrakech. Contrat souscrit il y a moins de 15 jours. Déclaration transmise avec 16 jours de retard sans motif justificatif.")
+                        .status(SinistreStatus.DECLARE)
+                        .fraudRiskScore(78)
+                        .fraudRiskLevel("ÉLEVÉ")
+                        .liabilityAssessment("En attente d'instruction (Déclaration tardive > 5 jours ouvrés selon l'Article 20 de la Loi n° 17-99 et suspicion d'antériorité du sinistre).")
+                        .liabilityRate(50)
+                        .estimatedDamage(28000.0)
+                        .deductible(3000.0)
+                        .netPayout(25000.0)
+                        .riskFlags(List.of("Déclaration hors délai légal de 5 jours ouvrés (Article 20 de la Loi n° 17-99).", "Sinistre survenu à proximité immédiate de la date d'effet du contrat.", "Défaut de récépissé initial de dépôt de plainte."))
+                        .recommendedActions(List.of("Notifier l'assuré avec réserves expresses de garantie pour forclusion légale.", "Mandater un expert enquêteur spécialisé en conformité des bris.", "Exiger la production du procès-verbal de gendarmerie / police."))
+                        .executiveSummary("Alerte fraude élevée. Retard de déclaration supérieur à 15 jours et antériorité suspectée.")
+                        .createdAt(LocalDateTime.of(2026, 8, 26, 17, 30))
+                        .updatedAt(LocalDateTime.of(2026, 8, 26, 17, 30))
+                        .build()
+        );
+
+        return sinistreRepository.saveAll(list);
     }
 
     private List<Nature> seedNatures() {

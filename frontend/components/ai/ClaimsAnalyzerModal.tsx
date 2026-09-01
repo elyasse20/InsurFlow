@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Sparkles,
   ShieldAlert,
@@ -18,6 +19,8 @@ import {
   Calendar,
   AlertCircle,
   FileCheck2,
+  Save,
+  FolderPlus,
 } from 'lucide-react';
 import {
   Dialog,
@@ -39,6 +42,8 @@ import {
   FraudRiskLevel,
   Client,
   Production,
+  Sinistre,
+  CreateSinistreRequest,
 } from '@/types';
 
 interface ClaimsAnalyzerModalProps {
@@ -49,6 +54,7 @@ interface ClaimsAnalyzerModalProps {
   triggerButtonText?: string;
   triggerButtonVariant?: 'default' | 'outline' | 'secondary' | 'ghost';
   triggerButtonSize?: 'default' | 'sm' | 'lg' | 'icon';
+  onSinistreSaved?: (saved: Sinistre) => void;
 }
 
 export default function ClaimsAnalyzerModal({
@@ -59,9 +65,13 @@ export default function ClaimsAnalyzerModal({
   triggerButtonText = 'Analyser Sinistre IA',
   triggerButtonVariant = 'outline',
   triggerButtonSize = 'sm',
+  onSinistreSaved,
 }: ClaimsAnalyzerModalProps) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Data sources
@@ -85,6 +95,7 @@ export default function ClaimsAnalyzerModal({
   // Load real clients & productions when modal opens
   useEffect(() => {
     if (open) {
+      setSaveSuccess(false);
       Promise.all([
         api.get<Client[]>('/clients'),
         api.get<Production[]>('/productions'),
@@ -177,10 +188,62 @@ export default function ClaimsAnalyzerModal({
     }
   };
 
+  const handleSaveSinistre = async () => {
+    if (!result) return;
+    setSaving(true);
+    setError(null);
+
+    const matchedProd = clientPolicies.find((p) => p.numpolice === policyNumber) ||
+      productions.find((p) => p.numpolice === policyNumber);
+
+    const payload: CreateSinistreRequest = {
+      clientName: clientName.trim() || 'Assuré InsurFlow',
+      policyNumber: policyNumber.trim() || 'POL-REF-001',
+      compagne: matchedProd?.compagne,
+      category: category || matchedProd?.category || 'AUTOMOBILE',
+      incidentDate: incidentDate || new Date().toISOString().slice(0, 10),
+      declarationDate: new Date().toISOString().slice(0, 10),
+      claimText: claimText.trim(),
+      status: 'DECLARE',
+      fraudRiskScore: result.fraudRiskScore,
+      fraudRiskLevel: result.fraudRiskLevel,
+      liabilityAssessment: result.liabilityAssessment,
+      estimatedDamage: result.financialBreakdown?.estimatedDamage ?? Number(estimatedDamage),
+      deductible: result.financialBreakdown?.deductible ?? Number(deductible),
+      netPayout: result.financialBreakdown?.netPayout ?? 0,
+      riskFlags: result.riskFlags,
+      recommendedActions: result.recommendedActions,
+      executiveSummary: result.executiveSummary,
+    };
+
+    try {
+      const res = await api.post<Sinistre>('/sinistres', payload);
+      setSaveSuccess(true);
+
+      if (onSinistreSaved) {
+        onSinistreSaved(res.data);
+      }
+
+      setTimeout(() => {
+        setOpen(false);
+        setSaveSuccess(false);
+        if (!onSinistreSaved) {
+          router.push('/sinistres');
+        }
+      }, 1200);
+    } catch (err: any) {
+      console.error('Failed to save claim:', err);
+      setError(err?.response?.data?.message || "Erreur lors de l'enregistrement du dossier sinistre dans la base.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleReset = () => {
     setClaimText('');
     setResult(null);
     setError(null);
+    setSaveSuccess(false);
     setEstimatedDamage(15000);
     setDeductible(2000);
     if (!initialClientName) {
@@ -662,6 +725,47 @@ ${result.executiveSummary}
                   </div>
                 </div>
               )}
+
+              {/* 6. Enregistrement du Dossier Sinistre dans la Base */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-500/10 via-primary/5 to-transparent border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center flex-shrink-0">
+                    <FolderPlus className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-foreground">
+                      Créer & Enregistrer le dossier Sinistre
+                    </h5>
+                    <p className="text-[11px] text-muted-foreground">
+                      Consigne l&apos;expertise, le score IA et le décompte financier dans le module Sinistres.
+                    </p>
+                  </div>
+                </div>
+
+                <Button
+                  type="button"
+                  onClick={handleSaveSinistre}
+                  disabled={saving || saveSuccess}
+                  className="w-full sm:w-auto gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs px-5 h-9 rounded-xl shadow-md shadow-emerald-600/20 cursor-pointer"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Enregistrement...</span>
+                    </>
+                  ) : saveSuccess ? (
+                    <>
+                      <Check className="w-3.5 h-3.5 text-white" />
+                      <span>Dossier Enregistré !</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>Enregistrer le dossier Sinistre</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           )}
         </div>
