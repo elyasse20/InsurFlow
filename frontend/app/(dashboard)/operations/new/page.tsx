@@ -330,7 +330,7 @@ export default function NewOperationPage() {
     if (!form.compagne) return;
     const generated = generatePolicyNumber(form.compagne, form.dateEff, existingProductions);
     setForm(p => {
-      let updated = { ...p, numpolice: generated };
+      const updated = { ...p, numpolice: generated };
       if (p.category.toUpperCase() === 'MARITIME') {
         if (!p.refCie || p.refCie.startsWith('REF-')) {
           updated.refCie = generateRefCie(form.compagne, form.dateEff, existingProductions);
@@ -359,7 +359,7 @@ export default function NewOperationPage() {
     const rate = getCommissionRate(newCategory);
 
     setForm(p => {
-      let updated = { ...p, category: newCategory };
+      const updated = { ...p, category: newCategory };
       if (newCategory.toUpperCase() === 'MARITIME') {
         if (!p.refCie && p.compagne) {
           updated.refCie = generateRefCie(p.compagne, p.dateEff, existingProductions);
