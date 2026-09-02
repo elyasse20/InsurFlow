@@ -18,7 +18,7 @@ const emptyParam = (): Omit<ProductionParameter, 'name'> & { name: string } =>
 
 const emptyRepartition = (): CompagneRepartition => ({ compagneName: '', percent: 0 });
 
-/* ── Helper Functions for Policy Number Generation ── */
+/* ── Helper Functions for Policy, RefCie, & Certificat Generation ── */
 
 /**
  * Extracts a clean normalized trigram or uppercase code from a company name.
@@ -85,6 +85,104 @@ function generatePolicyNumber(
   return `POL-${compCode}-${year}-${seqStr}`;
 }
 
+/**
+ * Generates an incremental company reference: REF-{TRIGRAMME}-{ANNEE}-{00X}
+ */
+function generateRefCie(
+  companyName: string,
+  dateEff: string,
+  existingList: Production[] = []
+): string {
+  if (!companyName) return '';
+  const compCode = extractCompanyCode(companyName);
+
+  let year = new Date().getFullYear();
+  if (dateEff && dateEff.length >= 4) {
+    const parsed = parseInt(dateEff.substring(0, 4), 10);
+    if (!isNaN(parsed) && parsed > 1900) year = parsed;
+  }
+
+  const prefix = `REF-${compCode}-${year}-`;
+  let maxSeq = 0;
+  let countForCompYear = 0;
+
+  for (const p of existingList) {
+    if (!p) continue;
+    const pYear = p.dateEff ? parseInt(p.dateEff.substring(0, 4), 10) : (p.exercice || 0);
+    const pCompCode = extractCompanyCode(p.compagne);
+
+    if (pCompCode === compCode && (pYear === year || pYear === 0)) {
+      countForCompYear++;
+    }
+
+    if (p.refCie && p.refCie.startsWith(prefix)) {
+      const seqPart = p.refCie.substring(prefix.length);
+      const parsedSeq = parseInt(seqPart, 10);
+      if (!isNaN(parsedSeq) && parsedSeq > maxSeq) {
+        maxSeq = parsedSeq;
+      }
+    }
+  }
+
+  const nextIndex = maxSeq > 0 ? maxSeq + 1 : countForCompYear + 1;
+  const seqStr = String(nextIndex).padStart(3, '0');
+
+  return `REF-${compCode}-${year}-${seqStr}`;
+}
+
+/**
+ * Generates an incremental maritime certificate: CERT-{ANNEE}-{00X}
+ */
+function generateCertificat(
+  dateEff: string,
+  existingList: Production[] = []
+): string {
+  let year = new Date().getFullYear();
+  if (dateEff && dateEff.length >= 4) {
+    const parsed = parseInt(dateEff.substring(0, 4), 10);
+    if (!isNaN(parsed) && parsed > 1900) year = parsed;
+  }
+
+  const prefix = `CERT-${year}-`;
+  let maxSeq = 0;
+  let countForYear = 0;
+
+  for (const p of existingList) {
+    if (!p) continue;
+    const pYear = p.dateEff ? parseInt(p.dateEff.substring(0, 4), 10) : (p.exercice || 0);
+
+    if (pYear === year || pYear === 0) {
+      countForYear++;
+    }
+
+    if (p.certificat && p.certificat.startsWith(prefix)) {
+      const seqPart = p.certificat.substring(prefix.length);
+      const parsedSeq = parseInt(seqPart, 10);
+      if (!isNaN(parsedSeq) && parsedSeq > maxSeq) {
+        maxSeq = parsedSeq;
+      }
+    }
+  }
+
+  const nextIndex = maxSeq > 0 ? maxSeq + 1 : countForYear + 1;
+  const seqStr = String(nextIndex).padStart(3, '0');
+
+  return `CERT-${year}-${seqStr}`;
+}
+
+const FREQUENT_NAVIRES = [
+  'MV TANGER EXPRESS',
+  'AL IDRISSI',
+  'ATLAS MARITIME',
+  'CASABLANCA STAR',
+  'TARIK IBN ZIYAD',
+  'MEDITERRANEE V',
+  'DETROIT JET',
+  'MAROC LEADER',
+  'IBN BATTUTA',
+  'CAP SPARTEL',
+];
+
 /* ── Sub-components ──────────────────────────────────────────────────────── */
 function FieldRow({ label, id, children }: { label: string; id: string; children: React.ReactNode }) {
   return (
@@ -95,11 +193,19 @@ function FieldRow({ label, id, children }: { label: string; id: string; children
   );
 }
 
-function StyledInput({ id, value, onChange, required = false, type = 'text', placeholder, readOnly = false }: any) {
+function StyledInput({ id, value, onChange, required = false, type = 'text', placeholder, readOnly = false, list, className = '' }: any) {
   return (
-    <Input id={id} type={type} value={value} onChange={onChange} required={required}
-      placeholder={placeholder} readOnly={readOnly}
-      className="bg-muted/30 border-border focus:border-primary w-full" />
+    <Input
+      id={id}
+      type={type}
+      value={value}
+      onChange={onChange}
+      required={required}
+      placeholder={placeholder}
+      readOnly={readOnly}
+      list={list}
+      className={`bg-muted/30 border-border focus:border-primary w-full ${className}`}
+    />
   );
 }
 
@@ -168,15 +274,25 @@ export default function NewOperationPage() {
     const autoPolicy = newCompagne
       ? generatePolicyNumber(newCompagne, form.dateEff, existingProductions)
       : '';
+    const autoRefCie = newCompagne
+      ? generateRefCie(newCompagne, form.dateEff, existingProductions)
+      : '';
+    const autoCertificat = generateCertificat(form.dateEff, existingProductions);
 
     setForm(p => ({
       ...p,
       compagne: newCompagne,
       numpolice: autoPolicy || p.numpolice,
+      refCie: p.category.toUpperCase() === 'MARITIME' && (!p.refCie || p.refCie.startsWith('REF-'))
+        ? autoRefCie
+        : p.refCie,
+      certificat: p.category.toUpperCase() === 'MARITIME' && (!p.certificat || p.certificat.startsWith('CERT-'))
+        ? autoCertificat
+        : p.certificat,
     }));
   };
 
-  /* ── Date d'effet Change & Policy Year Sync ── */
+  /* ── Date d'effet Change & Numbers Sync ── */
   const handleDateEffChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newDate = e.target.value;
     setForm(p => {
@@ -189,11 +305,23 @@ export default function NewOperationPage() {
         newPolicy = generatePolicyNumber(p.compagne, newDate, existingProductions);
       }
 
+      let newRefCie = p.refCie;
+      if (p.compagne && (!p.refCie || p.refCie.startsWith('REF-'))) {
+        newRefCie = generateRefCie(p.compagne, newDate, existingProductions);
+      }
+
+      let newCertificat = p.certificat;
+      if (!p.certificat || p.certificat.startsWith('CERT-')) {
+        newCertificat = generateCertificat(newDate, existingProductions);
+      }
+
       return {
         ...p,
         dateEff: newDate,
         moisDem: newMoisDem,
         numpolice: newPolicy,
+        refCie: newRefCie,
+        certificat: newCertificat,
       };
     });
   };
@@ -201,13 +329,48 @@ export default function NewOperationPage() {
   const handleRegeneratePolicy = () => {
     if (!form.compagne) return;
     const generated = generatePolicyNumber(form.compagne, form.dateEff, existingProductions);
-    setForm(p => ({ ...p, numpolice: generated }));
+    setForm(p => {
+      let updated = { ...p, numpolice: generated };
+      if (p.category.toUpperCase() === 'MARITIME') {
+        if (!p.refCie || p.refCie.startsWith('REF-')) {
+          updated.refCie = generateRefCie(form.compagne, form.dateEff, existingProductions);
+        }
+        if (!p.certificat || p.certificat.startsWith('CERT-')) {
+          updated.certificat = generateCertificat(form.dateEff, existingProductions);
+        }
+      }
+      return updated;
+    });
+  };
+
+  const handleAutoRefCie = () => {
+    if (!form.compagne) return;
+    const generated = generateRefCie(form.compagne, form.dateEff, existingProductions);
+    setForm(p => ({ ...p, refCie: generated }));
+  };
+
+  const handleAutoCertificat = () => {
+    const generated = generateCertificat(form.dateEff, existingProductions);
+    setForm(p => ({ ...p, certificat: generated }));
   };
 
   const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newCategory = e.target.value;
-    setForm(p => ({ ...p, category: newCategory }));
     const rate = getCommissionRate(newCategory);
+
+    setForm(p => {
+      let updated = { ...p, category: newCategory };
+      if (newCategory.toUpperCase() === 'MARITIME') {
+        if (!p.refCie && p.compagne) {
+          updated.refCie = generateRefCie(p.compagne, p.dateEff, existingProductions);
+        }
+        if (!p.certificat) {
+          updated.certificat = generateCertificat(p.dateEff, existingProductions);
+        }
+      }
+      return updated;
+    });
+
     setParams(prev =>
       prev.map(p => ({
         ...p,
@@ -354,28 +517,35 @@ export default function NewOperationPage() {
               </StyledSelect>
             </FieldRow>
 
-            {/* Client */}
-            <FieldRow label="Client (nom)" id="client">
+            {/* Client (Combobox avec recherche dynamique) */}
+            <FieldRow label="Client / Assuré" id="client">
               <Combobox
-                options={clients.map(c => ({ value: c.nom, label: c.nom }))}
+                options={clients.map(c => {
+                  const clientName = `${c.nom || ''} ${c.prenom || ''}`.trim() || c.nom;
+                  const identifier = c.cin ? ` (CIN: ${c.cin})` : c.ice ? ` (ICE: ${c.ice})` : '';
+                  return {
+                    value: clientName,
+                    label: `${clientName}${identifier}`,
+                  };
+                })}
                 value={form.client}
-                onChange={val => setForm(p => ({ ...p, client: val }))}
+                onChange={(val) => setForm(p => ({ ...p, client: val }))}
                 placeholder="Rechercher un client..."
                 emptyText="Aucun client trouvé."
               />
             </FieldRow>
 
-            {/* Date d'effet */}
+            {/* Date Effet */}
             <FieldRow label="Date d'effet" id="dateEff">
               <StyledInput id="dateEff" type="date" value={form.dateEff} onChange={handleDateEffChange} required />
             </FieldRow>
 
-            {/* Mois de demande */}
-            <FieldRow label="Mois de demande" id="moisDem">
-              <StyledInput id="moisDem" type="month" value={form.moisDem} onChange={setF('moisDem')} required />
+            {/* Mois Démission */}
+            <FieldRow label="Mois d'émission" id="moisDem">
+              <StyledInput id="moisDem" value={form.moisDem} onChange={setF('moisDem')} placeholder="YYYY-MM (ex: 2026-02)" required />
             </FieldRow>
 
-            {/* Compagnie (Placée avant N° Police) */}
+            {/* Compagnie (Placé avant N° Police pour l'auto-génération fluide) */}
             <FieldRow label="Compagnie" id="compagne">
               <StyledSelect id="compagne" value={form.compagne} onChange={handleCompagneChange} required>
                 <option value="">-- Sélectionner une compagnie --</option>
@@ -392,12 +562,13 @@ export default function NewOperationPage() {
                   onChange={setF('numpolice')}
                   required
                   placeholder="ex: POL-SANLAM-2026-001"
+                  className="pr-16"
                 />
                 {form.compagne && (
                   <button
                     type="button"
                     onClick={handleRegeneratePolicy}
-                    className="absolute right-2 text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 bg-muted/60 hover:bg-muted px-2 py-1 rounded-md"
+                    className="absolute right-2 text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 bg-muted/60 hover:bg-muted px-2 py-1 rounded-md cursor-pointer"
                     title="Régénérer le N° de Police automatique"
                   >
                     <Sparkles className="w-3 h-3 text-primary" />
@@ -423,20 +594,97 @@ export default function NewOperationPage() {
               </StyledSelect>
             </FieldRow>
 
+            {/* ── Champs Spécifiques Maritime ── */}
             {form.category.toUpperCase() === 'MARITIME' && (
               <>
                 <FieldRow label="N° Ordre" id="ordre">
                   <StyledInput id="ordre" value={form.ordre} onChange={setF('ordre')} placeholder="Ex: 74278" />
                 </FieldRow>
+
+                {/* Réf. Compagnie avec bouton ✨ Auto */}
                 <FieldRow label="Réf. Compagnie" id="refCie">
-                  <StyledInput id="refCie" value={form.refCie} onChange={setF('refCie')} placeholder="Ex: 0070.9201.2026..." />
+                  <div className="relative flex items-center">
+                    <StyledInput
+                      id="refCie"
+                      value={form.refCie}
+                      onChange={setF('refCie')}
+                      placeholder="ex: REF-ATLANTA-2026-001"
+                      className="pr-16"
+                    />
+                    {form.compagne && (
+                      <button
+                        type="button"
+                        onClick={handleAutoRefCie}
+                        className="absolute right-2 text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 bg-muted/60 hover:bg-muted px-2 py-1 rounded-md cursor-pointer"
+                        title="Générer la Réf. Compagnie automatique"
+                      >
+                        <Sparkles className="w-3 h-3 text-primary" />
+                        <span className="text-[10px] font-medium hidden sm:inline">Auto</span>
+                      </button>
+                    )}
+                  </div>
                 </FieldRow>
+
+                {/* Certificat avec bouton ✨ Auto */}
                 <FieldRow label="Certificat" id="certificat">
-                  <StyledInput id="certificat" value={form.certificat} onChange={setF('certificat')} placeholder="Ex: 2026/00217" />
+                  <div className="relative flex items-center">
+                    <StyledInput
+                      id="certificat"
+                      value={form.certificat}
+                      onChange={setF('certificat')}
+                      placeholder="ex: CERT-2026-001"
+                      className="pr-16"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAutoCertificat}
+                      className="absolute right-2 text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 bg-muted/60 hover:bg-muted px-2 py-1 rounded-md cursor-pointer"
+                      title="Générer le Certificat automatique"
+                    >
+                      <Sparkles className="w-3 h-3 text-primary" />
+                      <span className="text-[10px] font-medium hidden sm:inline">Auto</span>
+                    </button>
+                  </div>
                 </FieldRow>
-                <div className="col-span-1 sm:col-span-2">
+
+                {/* Navire avec Datalist + Suggestions rapides */}
+                <div className="col-span-1 sm:col-span-2 lg:col-span-3">
                   <FieldRow label="Navire" id="navire">
-                    <StyledInput id="navire" value={form.navire} onChange={setF('navire')} placeholder="Ex: CLARKE QUAY" />
+                    <div className="space-y-2">
+                      <StyledInput
+                        id="navire"
+                        list="frequent-navires"
+                        value={form.navire}
+                        onChange={setF('navire')}
+                        placeholder="ex: MV TANGER EXPRESS (ou sélectionner une suggestion ci-dessous)"
+                      />
+                      <datalist id="frequent-navires">
+                        {FREQUENT_NAVIRES.map((ship) => (
+                          <option key={ship} value={ship} />
+                        ))}
+                      </datalist>
+
+                      {/* Quick Suggestions Chips */}
+                      <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                        <span className="text-[11px] text-muted-foreground font-medium mr-1">
+                          Navires fréquents :
+                        </span>
+                        {FREQUENT_NAVIRES.map((ship) => (
+                          <button
+                            key={ship}
+                            type="button"
+                            onClick={() => setForm(p => ({ ...p, navire: ship }))}
+                            className={`text-[11px] px-2.5 py-1 rounded-lg border transition-all cursor-pointer ${
+                              form.navire === ship
+                                ? 'bg-primary/15 text-primary border-primary/40 font-semibold shadow-xs'
+                                : 'bg-muted/30 text-muted-foreground border-border/70 hover:bg-muted/80 hover:text-foreground'
+                            }`}
+                          >
+                            {ship}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   </FieldRow>
                 </div>
               </>
