@@ -117,8 +117,9 @@ Enfin, nous remercions l'ensemble des membres de l'équipe technique et métier 
     - [3.6. Module facturation, devis proforma et factures d&#39;avoir](#36-module-facturation-devis-proforma-et-factures-davoir)
     - [3.7. Document officiel de facturation et devis PDF haute résolution](#37-document-officiel-de-facturation-et-devis-pdf-haute-résolution)
     - [3.8. Modal d&#39;analyse intelligente des sinistres par IA (Claims AI)](#38-modal-danalyse-intelligente-des-sinistres-par-ia-claims-ai)
-    - [3.9. Stack d&#39;observabilité et monitoring de production (Grafana / Prometheus)](#39-stack-dobservabilité-et-monitoring-de-production-grafana--prometheus)
-    - [3.10. Pipeline d&#39;automatisation DevSecOps (CI/CD GitHub Actions &amp; Scans Trivy)](#310-pipeline-dautomatisation-devsecops-cicd-github-actions--scans-trivy)
+    - [3.9. Registre et pilotage du cycle de vie des sinistres](#39-registre-et-pilotage-du-cycle-de-vie-des-sinistres)
+    - [3.10. Stack d&#39;observabilité et monitoring de production (Grafana / Prometheus)](#310-stack-dobservabilité-et-monitoring-de-production-grafana--prometheus)
+    - [3.11. Pipeline d&#39;automatisation DevSecOps (CI/CD GitHub Actions &amp; Scans Trivy)](#311-pipeline-dautomatisation-devsecops-cicd-github-actions--scans-trivy)
   - [4. Conclusion](#4-conclusion-3)
 - [Conclusion Générale](#conclusion-générale)
 - [Bibliographie et Nétographie](#bibliographie-et-nétographie)
@@ -156,8 +157,9 @@ Enfin, nous remercions l'ensemble des membres de l'équipe technique et métier 
 - **Figure 24 :** Interface du Module Facturation, Devis Proforma et Factures d'Avoir
 - **Figure 25 :** Document officiel de Facture / Devis PDF généré via le moteur OpenPDF
 - **Figure 26 :** Interface du Modal d'Analyse Intelligente des Sinistres par IA (Claims AI)
-- **Figure 27 :** Interface du Tableau de Bord d'Observabilité & Monitoring Grafana / Prometheus
-- **Figure 28 :** Pipeline CI/CD DevSecOps sous GitHub Actions avec scans de sécurité Trivy
+- **Figure 27 :** Tableau de bord et registre de gestion du portefeuille de sinistres
+- **Figure 28 :** Interface du Tableau de Bord d'Observabilité & Monitoring Grafana / Prometheus
+- **Figure 29 :** Pipeline CI/CD DevSecOps sous GitHub Actions avec scans de sécurité Trivy
 
 ---
 
@@ -1586,6 +1588,8 @@ L'interface du Registre de Production (`/operations`) rassemble l'ensemble des c
 
 Ce formulaire spécialisé prend en charge la souscription des risques maritimes (`MARITIME` et `MARITIME A C`). Il permet d'enregistrer les métadonnées maritimes réglementaires : nom du navire, numéro de certificat maritime et numéro d'ordre séquentiel interne. Son atout majeur réside dans son module de répartition en co-assurance : le gestionnaire peut associer plusieurs compagnies d'assurances partenaires en renseignant leur quote-part respective. Une jauge interactive vérifie en temps réel que le cumul des pourcentages atteint exactement 100%, bloquant toute validation asymétrique afin de garantir la cohérence des écritures comptables.
 
+Afin d'éviter les erreurs de saisie et de garantir la cohérence contractuelle, le formulaire de souscription intègre un moteur d'auto-génération séquentielle du numéro de police. Dès la sélection de la compagnie d'assurance partenaire, le système extrait le trigramme institutionnel (ex: SANLAM, RMA, WAFA, ALLIANZ), récupère l'exercice comptable de la date d'effet et calcule l'incrément séquentiel unique selon le schéma standardisé `POL-{COMPAGNIE}-{ANNEE}-{00X}`. Un contrôle d'intégrité en cascade propage automatiquement cette référence vers les modules de facturation et de gestion des sinistres.
+
 ```
 +----------------------------------------------------------------------------------------------------+
 |  Nouvelle Police d'Assurance — Branche MARITIME & CO-ASSURANCE                                     |
@@ -1692,7 +1696,7 @@ Cette interface restitue l'aperçu vectoriel du document PDF compilé côté ser
 
 `[Insérer ici la capture d'écran : Figure 26 - Modal d'Analyse Intelligente des Sinistres par IA (Claims AI)]`
 
-L'assistant intelligent de gestion des sinistres (`Claims AI`) se présente sous la forme d'une fenêtre modale interactive accessible depuis la fiche de contrat. Le gestionnaire saisit le récit du constat amiable ainsi que les montants des dommages et de la franchise contractuelle. Le moteur d'IA applique une batterie de règles déterministes et heuristiques : détection des incohérences (ex: déclaration tardive supérieure à 5 jours selon l'Article 20 de la Loi n° 17-99), calcul d'un score de suspicion de fraude (0-100), qualification de la responsabilité selon le barème conventionnel ACAPS/CISA, décompte financier net d'indemnisation et formulation d'actions recommandées pour l'expert.
+L'assistant intelligent de gestion des sinistres (`Claims AI`) se présente sous la forme d'une fenêtre modale interactive accessible depuis la fiche de contrat et le registre des sinistres. L'assistant intelligent élimine toute redondance en liant dynamiquement le client sélectionné à son portefeuille de contrats actifs : le sélecteur restreint instantanément le choix aux seules polices souscrites par l'assuré. Dès l'analyse du constat amiable, le moteur d'inférence confronte le récit aux exigences de la Loi n° 17-99 (Code des Assurances) en auditant le respect du délai légal de déclaration (Article 20, seuil de 5 jours ouvrés). Parallèlement, il détermine automatiquement le degré de responsabilité selon les conventions CID / CISA (Barème ACAPS) et calcule le décompte net d'indemnisation par imputation de la franchise contractuelle.
 
 ```
 +----------------------------------------------------------------------------------------------------+
@@ -1717,9 +1721,38 @@ L'assistant intelligent de gestion des sinistres (`Claims AI`) se présente sous
 <b>Figure 26 : Interface du Modal d'Analyse Intelligente des Sinistres par IA (Claims AI)</b>
 </div>
 
-### 3.9. Stack d'observabilité et monitoring de production (Grafana / Prometheus)
+### 3.9. Registre et pilotage du cycle de vie des sinistres
 
-`[Insérer ici la capture d'écran : Figure 27 - Tableau de Bord d'Observabilité et Monitoring Grafana / Prometheus]`
+`[Insérer ici la capture d'écran : Figure 27 - Tableau de bord et registre de gestion du portefeuille de sinistres]`
+
+Ce module centralise l'ensemble du portefeuille des sinistres instruits au sein du cabinet. Il modélise le cycle de vie complet du dossier à travers une machine à états finis (DÉCLARÉ $\rightarrow$ EN EXPERTISE $\rightarrow$ INDEMNISÉ $\rightarrow$ CLÔTURÉ). Le tableau de bord restitue en temps réel les indicateurs clés de sinistralité (encours global indemnisable, taux de responsabilité moyen, distribution du score de fraude IA) et propose une pagination dynamique et multicritère (filtres par statut légal, compagnie apéritrice et niveau de risque).
+
+```
++----------------------------------------------------------------------------------------------------+
+|  InsurFlow ERP — Module Gestion des Sinistres & Arbitrage ACAPS            [ + Nouveau Sinistre IA]|
++----------------------------------------------------------------------------------------------------+
+|  [ 6 Sinistres Actifs ]     [ 2 En Expertise ]      [ 163 200 DH ]             [ 27.8 / 100 ]      |
+|  Portefeuille Global        Instruction en cours    Indemnités Nettes Dues     Score Fraude Moyen  |
++----------------------------------------------------------------------------------------------------+
+|  [ Recherche sinistre, client... ] [ Statut : Tous v ] [ Risque : Tous v ]                         |
++----------------------------------------------------------------------------------------------------+
+|  Réf. Sinistre | Client / Assuré    | N° Police & Compagnie | Score Fraude IA | Net MAD   | Statut   |
+|  SIN-2026-0001 | Sté Maghreb Fret   | POL-ATLANTA-2026-001  | 12/100 (Faible) | 16 500 DH | EXPERTISE|
+|  SIN-2026-0002 | M. Youssef Mansouri| POL-SANLAM-2026-001   | 42/100 (Moyen)  |  7 700 DH | DÉCLARÉ  |
+|  SIN-2026-0003 | Sté Atlas Transport| POL-RMA-2026-001      | 08/100 (Faible) | 37 000 DH | INDEMNISÉ|
+|  SIN-2026-0006 | Mme Amina Amrani   | POL-AXA-2026-001      | 78/100 (Élevé)  | 25 000 DH | DÉCLARÉ  |
++----------------------------------------------------------------------------------------------------+
+|  Affichage de 1 à 6 sur 6 sinistres                  [ 10 / page v ] [ Précédent ] [ 1 ] [ Suivant]|
++----------------------------------------------------------------------------------------------------+
+```
+
+<div align="center">
+<b>Figure 27 : Tableau de bord et registre de gestion du portefeuille de sinistres</b>
+</div>
+
+### 3.10. Stack d'observabilité et monitoring de production (Grafana / Prometheus)
+
+`[Insérer ici la capture d'écran : Figure 28 - Tableau de Bord d'Observabilité et Monitoring Grafana / Prometheus]`
 
 Cette interface de supervision d'infrastructure (`/grafana`) centralise les métriques techniques collectées en temps réel par Prometheus via Spring Boot Actuator et Micrometer. Elle permet aux ingénieurs système de surveiller l'état de santé des conteneurs Docker en production sur la VM Azure : taux d'usage CPU et mémoire vive de la machine hôte, allocation de la mémoire Heap de la machine virtuelle Java 21, latences des requêtes HTTP (percentiles p95 et p99), volumétrie des connexions actives au pool MongoDB et statut de disponibilité des services (Uptime 99.9%).
 
@@ -1739,12 +1772,12 @@ Cette interface de supervision d'infrastructure (`/grafana`) centralise les mét
 ```
 
 <div align="center">
-<b>Figure 27 : Interface du Tableau de Bord d'Observabilité & Monitoring Grafana / Prometheus</b>
+<b>Figure 28 : Interface du Tableau de Bord d'Observabilité & Monitoring Grafana / Prometheus</b>
 </div>
 
-### 3.10. Pipeline d'automatisation DevSecOps (CI/CD GitHub Actions & Scans Trivy)
+### 3.11. Pipeline d'automatisation DevSecOps (CI/CD GitHub Actions & Scans Trivy)
 
-`[Insérer ici la capture d'écran : Figure 28 - Pipeline CI/CD DevSecOps sous GitHub Actions avec scans de sécurité Trivy]`
+`[Insérer ici la capture d'écran : Figure 29 - Pipeline CI/CD DevSecOps sous GitHub Actions avec scans de sécurité Trivy]`
 
 L'intégration et le déploiement continus sont orchestrés par GitHub Actions (`deploy.yml`). Le workflow DevSecOps déclenché à chaque commit sur la branche `main` automatise trois étapes rigoureuses : la compilation et validation unitaire (Maven tests Java 21 et vérification TypeScript strict Next.js), l'audit statique de sécurité via le scanner Trivy bloquant toute dépendance présentant une vulnérabilité critique ou élevée, et le déploiement automatisé par tunnel SSH sur la machine virtuelle Azure avec mise à jour à chaud des conteneurs Docker Compose.
 
@@ -1757,7 +1790,7 @@ graph LR
 ```
 
 <div align="center">
-<b>Figure 28 : Pipeline CI/CD DevSecOps sous GitHub Actions avec scans de sécurité Trivy</b>
+<b>Figure 29 : Pipeline CI/CD DevSecOps sous GitHub Actions avec scans de sécurité Trivy</b>
 </div>
 
 ## 4. Conclusion
