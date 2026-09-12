@@ -3,13 +3,14 @@
 import React, { useState, useEffect } from 'react';
 import api from '@/lib/api';
 import { downloadInvoicePdf } from '@/lib/export';
-import { Invoice } from '@/types';
+import { Invoice, Client } from '@/types';
 import {
-  Download, Plus, Search, RefreshCw, X, Receipt, AlertTriangle, FileX2, AlertCircle, Loader2, CheckCircle2, Sparkles
+  Download, Plus, Search, RefreshCw, X, Receipt, AlertTriangle, FileX2, AlertCircle, Loader2, CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Combobox } from '@/components/ui/combobox';
 import { cn } from '@/lib/utils';
 import Pagination from '@/components/Pagination';
 
@@ -32,6 +33,7 @@ export default function FacturesPage() {
 
   // Modal for Proforma creation
   const [showProformaModal, setShowProformaModal] = useState<boolean>(false);
+  const [clients, setClients] = useState<Client[]>([]);
   const [proformaData, setProformaData] = useState({
     clientName: '',
     policyNumber: '',
@@ -41,6 +43,15 @@ export default function FacturesPage() {
     tvaRate: 14,
     notes: '',
   });
+
+  const fetchClients = async () => {
+    try {
+      const res = await api.get<Client[]>('/clients');
+      setClients(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch clients:', err);
+    }
+  };
 
   const fetchInvoices = async () => {
     setLoading(true);
@@ -56,6 +67,7 @@ export default function FacturesPage() {
 
   useEffect(() => {
     fetchInvoices();
+    fetchClients();
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const q = params.get('search');
@@ -224,25 +236,99 @@ export default function FacturesPage() {
     }
   };
 
-  // Pré-remplissage instantané pour démonstration / soutenance
-  const handleFillDemoData = () => {
-    setProformaData({
-      clientName: 'Société Atlas Transport SARL',
-      policyNumber: 'PRO-MAR-2026-042',
-      compagne: 'AtlantaSanad',
-      category: 'MARITIME',
-      amountTTC: 18500,
-      tvaRate: 14,
-      notes: 'Devis proforma émis pour couverture flotte transport de marchandises - Valable 30 jours.',
+  // Options pour le selecteur de clients
+  const clientOptions = React.useMemo(() => {
+    return clients.map((c) => {
+      const clientName = `${c.nom || ''} ${c.prenom || ''}`.trim() || c.nom;
+      const identifier = c.cin ? ` (CIN: ${c.cin})` : c.ice ? ` (ICE: ${c.ice})` : '';
+      return {
+        value: clientName,
+        label: `${clientName}${identifier}`,
+      };
+    });
+  }, [clients]);
+
+  // Auto-génération de la référence de devis proforma: PRO-[BRANCHE]-[ANNEE]-[00X]
+  const generateProformaNumber = (category: string = 'AUTOMOBILE') => {
+    const catCodeMap: Record<string, string> = {
+      AUTOMOBILE: 'AUTO',
+      MARITIME: 'MAR',
+      AT: 'AT',
+      RC: 'RC',
+      MULT: 'MULT',
+      'SANT INTER': 'SANTE',
+    };
+    const catCode = catCodeMap[category.toUpperCase()] || category.substring(0, 4).toUpperCase();
+    const currentYear = new Date().getFullYear();
+    const prefix = `PRO-${catCode}-${currentYear}-`;
+
+    let maxSeq = 0;
+    invoices.forEach((inv) => {
+      const pol = inv.policyNumber || inv.invoiceNumber || '';
+      if (pol.startsWith(prefix)) {
+        const seqPart = parseInt(pol.substring(prefix.length), 10);
+        if (!isNaN(seqPart) && seqPart > maxSeq) {
+          maxSeq = seqPart;
+        }
+      }
+    });
+
+    const nextSeq = maxSeq > 0 ? maxSeq + 1 : 1;
+    const seqStr = String(nextSeq).padStart(3, '0');
+    return `PRO-${catCode}-${currentYear}-${seqStr}`;
+  };
+
+  // Sélection d'un client dans le Combobox
+  const handleClientSelect = (selectedClientName: string) => {
+    const autoPolicy = generateProformaNumber(proformaData.category);
+    setProformaData((prev) => ({
+      ...prev,
+      clientName: selectedClientName,
+      policyNumber: !prev.policyNumber || prev.policyNumber.startsWith('PRO-') ? autoPolicy : prev.policyNumber,
+    }));
+  };
+
+  // Changement de branche / catégorie
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newCategory = e.target.value;
+    setProformaData((prev) => {
+      const shouldUpdatePolicy = prev.clientName && (!prev.policyNumber || prev.policyNumber.startsWith('PRO-'));
+      return {
+        ...prev,
+        category: newCategory,
+        policyNumber: shouldUpdatePolicy ? generateProformaNumber(newCategory) : prev.policyNumber,
+      };
     });
   };
 
   // Submit Proforma form
   const handleCreateProforma = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!proformaData.clientName) {
+      alert('Veuillez sélectionner un client.');
+      return;
+    }
+
+    const defaultNotes = "Devis valable 30 jours à compter de la date d'émission.";
+    const finalNotes = proformaData.notes?.trim() ? proformaData.notes.trim() : defaultNotes;
+
+    const payload = {
+      ...proformaData,
+      notes: finalNotes,
+    };
+
     try {
-      await api.post('/invoices/proforma', proformaData);
+      await api.post('/invoices/proforma', payload);
       setShowProformaModal(false);
+      setProformaData({
+        clientName: '',
+        policyNumber: '',
+        compagne: 'Sanlam Maroc',
+        category: 'AUTOMOBILE',
+        amountTTC: 3500,
+        tvaRate: 14,
+        notes: '',
+      });
       await fetchInvoices();
     } catch (err) {
       console.error('Failed to create proforma:', err);
@@ -598,47 +684,52 @@ export default function FacturesPage() {
                 Nouveau Devis Proforma
               </h3>
               
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleFillDemoData}
-                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg transition-all duration-150 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
-                  title="Injecter des données de test réalistes"
-                >
-                  <Sparkles className="w-3.5 h-3.5 animate-pulse" />
-                  <span>✨ Données de démo</span>
-                </button>
-
-                <button
-                  onClick={() => setShowProformaModal(false)}
-                  className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
+              <button
+                onClick={() => setShowProformaModal(false)}
+                className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
             <form onSubmit={handleCreateProforma} className="space-y-4 text-xs">
               <div className="space-y-1.5">
-                <Label htmlFor="clientName">Nom du Client / Prospect</Label>
-                <Input
-                  id="clientName"
+                <Label htmlFor="clientName">Client / Prospect</Label>
+                <Combobox
+                  options={clientOptions}
                   value={proformaData.clientName}
-                  onChange={(e) => setProformaData({ ...proformaData, clientName: e.target.value })}
-                  placeholder="Ex: Société Atlas Transport SARL"
-                  required
-                  className="h-9"
+                  onChange={handleClientSelect}
+                  placeholder="Rechercher un client..."
+                  emptyText="Aucun client trouvé."
+                  className="w-full"
                 />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="policyNumber">Police / Proposition</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="policyNumber">Police / Proposition</Label>
+                    {proformaData.clientName && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setProformaData((prev) => ({
+                            ...prev,
+                            policyNumber: generateProformaNumber(prev.category),
+                          }))
+                        }
+                        className="text-[10px] text-primary hover:underline font-medium"
+                        title="Régénérer la référence automatique"
+                      >
+                        Régénérer
+                      </button>
+                    )}
+                  </div>
                   <Input
                     id="policyNumber"
                     value={proformaData.policyNumber}
                     onChange={(e) => setProformaData({ ...proformaData, policyNumber: e.target.value })}
-                    placeholder="PRO-MAR-2026-042"
+                    placeholder="PRO-AUTO-2026-001"
                     className="h-9 font-mono"
                   />
                 </div>
@@ -648,11 +739,11 @@ export default function FacturesPage() {
                   <select
                     id="category"
                     value={proformaData.category}
-                    onChange={(e) => setProformaData({ ...proformaData, category: e.target.value })}
+                    onChange={handleCategoryChange}
                     className="w-full h-9 px-3 rounded-xl border border-border bg-muted/30 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="MARITIME">MARITIME</option>
                     <option value="AUTOMOBILE">AUTOMOBILE</option>
+                    <option value="MARITIME">MARITIME</option>
                     <option value="AT">ACCIDENT DU TRAVAIL (AT)</option>
                     <option value="RC">RESPONSABILITÉ CIVILE (RC)</option>
                     <option value="MULT">MULTIRISQUE</option>
@@ -693,7 +784,7 @@ export default function FacturesPage() {
                   id="notes"
                   value={proformaData.notes}
                   onChange={(e) => setProformaData({ ...proformaData, notes: e.target.value })}
-                  placeholder="Devis proforma émis pour couverture..."
+                  placeholder="Devis valable 30 jours à compter de la date d'émission."
                   className="h-9"
                 />
               </div>
