@@ -5,7 +5,7 @@ import api from '@/lib/api';
 import { downloadInvoicePdf } from '@/lib/export';
 import { Invoice } from '@/types';
 import {
-  Download, Plus, Search, RefreshCw, X, Receipt, AlertTriangle, FileX2, AlertCircle, Loader2, CheckCircle2
+  Download, Plus, Search, RefreshCw, X, Receipt, AlertTriangle, FileX2, AlertCircle, Loader2, CheckCircle2, Sparkles
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -222,6 +222,19 @@ export default function FacturesPage() {
     } finally {
       setIsSubmittingAvoir(false);
     }
+  };
+
+  // Pré-remplissage instantané pour démonstration / soutenance
+  const handleFillDemoData = () => {
+    setProformaData({
+      clientName: 'Société Atlas Transport SARL',
+      policyNumber: 'PRO-MAR-2026-042',
+      compagne: 'AtlantaSanad',
+      category: 'MARITIME',
+      amountTTC: 18500,
+      tvaRate: 14,
+      notes: 'Devis proforma émis pour couverture flotte transport de marchandises - Valable 30 jours.',
+    });
   };
 
   // Submit Proforma form
@@ -577,19 +590,32 @@ export default function FacturesPage() {
 
       {/* Proforma Modal */}
       {showProformaModal && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3.5 sm:p-4">
-          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto p-5 sm:p-6 space-y-5 animate-in fade-in zoom-in-95 duration-200">
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-3.5 sm:p-4 animate-in fade-in-0 duration-200">
+          <div className="bg-card border border-border rounded-2xl shadow-2xl w-full max-w-lg max-h-[88vh] overflow-y-auto p-5 sm:p-6 space-y-5 animate-in fade-in-0 zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
                 <Plus className="w-4 h-4 text-primary" />
                 Nouveau Devis Proforma
               </h3>
-              <button
-                onClick={() => setShowProformaModal(false)}
-                className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleFillDemoData}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 rounded-lg transition-all duration-150 shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                  title="Injecter des données de test réalistes"
+                >
+                  <Sparkles className="w-3.5 h-3.5 animate-pulse" />
+                  <span>✨ Données de démo</span>
+                </button>
+
+                <button
+                  onClick={() => setShowProformaModal(false)}
+                  className="p-1 rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleCreateProforma} className="space-y-4 text-xs">
@@ -599,7 +625,7 @@ export default function FacturesPage() {
                   id="clientName"
                   value={proformaData.clientName}
                   onChange={(e) => setProformaData({ ...proformaData, clientName: e.target.value })}
-                  placeholder="Ex: Société Atlas Transport"
+                  placeholder="Ex: Société Atlas Transport SARL"
                   required
                   className="h-9"
                 />
@@ -612,8 +638,8 @@ export default function FacturesPage() {
                     id="policyNumber"
                     value={proformaData.policyNumber}
                     onChange={(e) => setProformaData({ ...proformaData, policyNumber: e.target.value })}
-                    placeholder="POL-PRO-001"
-                    className="h-9"
+                    placeholder="PRO-MAR-2026-042"
+                    className="h-9 font-mono"
                   />
                 </div>
 
@@ -623,14 +649,14 @@ export default function FacturesPage() {
                     id="category"
                     value={proformaData.category}
                     onChange={(e) => setProformaData({ ...proformaData, category: e.target.value })}
-                    className="w-full h-9 px-3 rounded-xl border border-border bg-muted/30 text-xs font-medium text-foreground focus:outline-none"
+                    className="w-full h-9 px-3 rounded-xl border border-border bg-muted/30 text-xs font-medium text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="AUTOMOBILE">AUTOMOBILE</option>
-                    <option value="AT">AT</option>
-                    <option value="RC">RC</option>
-                    <option value="MULT">MULTIRISQUE</option>
                     <option value="MARITIME">MARITIME</option>
-                    <option value="SANT INTER">SANTE</option>
+                    <option value="AUTOMOBILE">AUTOMOBILE</option>
+                    <option value="AT">ACCIDENT DU TRAVAIL (AT)</option>
+                    <option value="RC">RESPONSABILITÉ CIVILE (RC)</option>
+                    <option value="MULT">MULTIRISQUE</option>
+                    <option value="SANT INTER">SANTÉ</option>
                   </select>
                 </div>
               </div>
@@ -644,7 +670,7 @@ export default function FacturesPage() {
                     value={proformaData.amountTTC}
                     onChange={(e) => setProformaData({ ...proformaData, amountTTC: parseFloat(e.target.value) || 0 })}
                     required
-                    className="h-9"
+                    className="h-9 font-mono"
                   />
                 </div>
 
@@ -656,7 +682,7 @@ export default function FacturesPage() {
                     value={proformaData.tvaRate}
                     onChange={(e) => setProformaData({ ...proformaData, tvaRate: parseFloat(e.target.value) || 14 })}
                     required
-                    className="h-9"
+                    className="h-9 font-mono"
                   />
                 </div>
               </div>
@@ -667,7 +693,7 @@ export default function FacturesPage() {
                   id="notes"
                   value={proformaData.notes}
                   onChange={(e) => setProformaData({ ...proformaData, notes: e.target.value })}
-                  placeholder="Devis valable 30 jours..."
+                  placeholder="Devis proforma émis pour couverture..."
                   className="h-9"
                 />
               </div>
@@ -676,7 +702,9 @@ export default function FacturesPage() {
                 <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={() => setShowProformaModal(false)}>
                   Annuler
                 </Button>
-                <Button type="submit" className="w-full sm:w-auto">Générer Proforma</Button>
+                <Button type="submit" className="w-full sm:w-auto">
+                  Générer Proforma
+                </Button>
               </div>
             </form>
           </div>
