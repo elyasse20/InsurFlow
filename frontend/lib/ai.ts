@@ -1,4 +1,5 @@
 import api from './api';
+import { getToken } from './auth';
 import {
   RiskAssessmentRequest,
   RiskAssessmentResponse,
@@ -10,18 +11,35 @@ import {
 } from '@/types';
 
 /**
+ * Helper to build auth headers including Bearer token if available.
+ */
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  const token = getToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+/**
  * Evaluates underwriting risk and pricing recommendation using AI backend / route.
  */
 export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAssessmentResponse> {
   try {
-    const res = await api.post<RiskAssessmentResponse>('/ai/risk-assessment', request);
+    const res = await api.post<RiskAssessmentResponse>('/ai/risk-assessment', request, {
+      withCredentials: true,
+    });
     return res.data;
   } catch (error) {
     console.warn('Backend /api/ai/risk-assessment call failed, trying Next.js local route fallback...', error);
     try {
       const fallbackRes = await fetch('/api/ai/risk-assessment', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
+        credentials: 'include',
         body: JSON.stringify(request),
       });
       if (fallbackRes.ok) {
@@ -35,7 +53,9 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
 }
 
 /**
- * Sends a conversation turn to InsurFlow Copilot directly via Next.js route (/api/ai/copilot).
+ * Sends a conversation turn to InsurFlow Copilot.
+ * Uses authenticated API client with Bearer token & session credentials,
+ * with fallback to local Next.js route handler.
  */
 export async function sendCopilotMessage(
   messages: CopilotMessage[],
@@ -43,29 +63,50 @@ export async function sendCopilotMessage(
 ): Promise<CopilotChatResponse> {
   const payload: CopilotChatRequest = { messages, contextPage };
 
+  // 1. First attempt: call via authenticated Axios API client (Bearer token + withCredentials)
   try {
-    // Call the Next.js API route directly to use Google Gemini integration
-    const res = await fetch('/api/ai/copilot', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
+    const res = await api.post<CopilotChatResponse>('/ai/copilot', payload, {
+      withCredentials: true,
     });
-
-    if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`Copilot route responded with status ${res.status}: ${errBody}`);
-    }
-
-    const data = await res.json();
+    const data = res.data;
     const text = data.response || data.message || '';
     return {
       response: text,
       message: text,
       suggestedActions: data.suggestedActions || [],
     };
-  } catch (error) {
-    console.error('Error calling /api/ai/copilot route:', error);
-    throw error;
+  } catch (apiError: any) {
+    console.warn(
+      'Primary API call to /api/ai/copilot failed, attempting Next.js local route fallback...',
+      apiError?.response?.status || apiError?.message || apiError
+    );
+
+    // 2. Fallback attempt: direct fetch with Bearer token and credentials: 'include'
+    try {
+      const res = await fetch('/api/ai/copilot', {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.response || data.message || '';
+        return {
+          response: text,
+          message: text,
+          suggestedActions: data.suggestedActions || [],
+        };
+      }
+
+      const errBody = await res.text().catch(() => '');
+      console.error(`Copilot route responded with status ${res.status}: ${errBody}`);
+    } catch (fallbackErr) {
+      console.error('Fallback /api/ai/copilot route also failed:', fallbackErr);
+    }
+
+    throw apiError;
   }
 }
 
@@ -77,7 +118,8 @@ export async function analyzeClaim(request: ClaimAnalysisRequest): Promise<Claim
   try {
     const res = await fetch('/api/ai/claims-analyzer', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
+      credentials: 'include',
       body: JSON.stringify(request),
     });
 
@@ -90,7 +132,9 @@ export async function analyzeClaim(request: ClaimAnalysisRequest): Promise<Claim
 
   // Fallback to Spring Boot backend
   try {
-    const backendRes = await api.post<ClaimAnalysisResponse>('/ai/claims-analyzer', request);
+    const backendRes = await api.post<ClaimAnalysisResponse>('/ai/claims-analyzer', request, {
+      withCredentials: true,
+    });
     return backendRes.data;
   } catch (backendErr) {
     console.error('Both Next.js and backend Claims Analyzer calls failed:', backendErr);
