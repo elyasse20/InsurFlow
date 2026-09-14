@@ -144,6 +144,20 @@ export async function POST(request: Request) {
     let generatedText = '';
 
     // ── 3. Appel de génération avec gestion robuste des erreurs (Try / Catch) ──
+    const isGoogle403Error = (err: any): boolean => {
+      if (!err) return false;
+      const status = err.status || err.statusCode || err.response?.status;
+      if (status === 403) return true;
+      const msg = String(err.message || '').toLowerCase();
+      return (
+        msg.includes('403') ||
+        msg.includes('api_key_invalid') ||
+        msg.includes('api key not valid') ||
+        msg.includes('permission_denied') ||
+        msg.includes('forbidden')
+      );
+    };
+
     try {
       const model = genAI.getGenerativeModel({
         model: targetModel,
@@ -163,6 +177,25 @@ export async function POST(request: Request) {
         `Échec de l'appel au modèle principal (${targetModel}):`,
         primaryErr?.message || primaryErr
       );
+
+      // Détection spécifique d'une erreur 403 Google (clé API invalide ou non autorisée)
+      if (isGoogle403Error(primaryErr)) {
+        console.error('Google Gemini API Error 403 (Forbidden): Clé API refusée ou non autorisée par Google.');
+        return NextResponse.json(
+          {
+            error: 'Google Gemini 403 Forbidden: La clé API fournie (GEMINI_API_KEY) a été refusée par Google (clé invalide, expirée ou non autorisée).',
+            message:
+              '⚠️ Accès refusé par Google Gemini (Erreur 403) : Votre clé API (GEMINI_API_KEY) est invalide ou non autorisée. Veuillez vérifier votre clé sur Google AI Studio.',
+            response:
+              '⚠️ **Accès refusé par Google Gemini (Erreur 403)** : La clé API configurée (`GEMINI_API_KEY`) a été refusée par Google (clé invalide ou expirée). Veuillez vérifier ou renouveler votre clé sur [Google AI Studio](https://aistudio.google.com/).',
+            suggestedActions: [
+              'Vérifier la variable GEMINI_API_KEY dans .env.local',
+              'Obtenir une nouvelle clé sur Google AI Studio',
+            ],
+          },
+          { status: 403 }
+        );
+      }
 
       // Fallback automatique vers 'gemini-1.5-flash-latest' si le modèle initial a échoué
       if (targetModel !== 'gemini-1.5-flash-latest') {
@@ -186,6 +219,25 @@ export async function POST(request: Request) {
             'Erreur lors du fallback Gemini (gemini-1.5-flash-latest):',
             fallbackErr?.message || fallbackErr
           );
+
+          if (isGoogle403Error(fallbackErr)) {
+            console.error('Google Gemini API Fallback Error 403: Clé API refusée par Google.');
+            return NextResponse.json(
+              {
+                error: 'Google Gemini 403 Forbidden: Clé API invalide ou non autorisée.',
+                message:
+                  '⚠️ Accès refusé par Google Gemini (Erreur 403) : Votre clé API (GEMINI_API_KEY) est invalide ou expirée.',
+                response:
+                  '⚠️ **Accès refusé par Google Gemini (Erreur 403)** : La clé API (`GEMINI_API_KEY`) a été refusée par Google.',
+                suggestedActions: [
+                  'Vérifier la variable GEMINI_API_KEY dans .env.local',
+                  'Obtenir une nouvelle clé sur Google AI Studio',
+                ],
+              },
+              { status: 403 }
+            );
+          }
+
           return NextResponse.json(
             {
               error: `Erreur API Google Gemini: ${primaryErr?.message || fallbackErr?.message || 'Échec de génération'}`,

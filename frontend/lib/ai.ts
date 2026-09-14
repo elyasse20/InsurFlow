@@ -1,4 +1,5 @@
 import api from './api';
+import { getToken } from './auth';
 import {
   RiskAssessmentRequest,
   RiskAssessmentResponse,
@@ -35,7 +36,22 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
 }
 
 /**
+ * Helper to build auth headers including Bearer token if available.
+ */
+function getAuthHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+  const token = getToken();
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+  return headers;
+}
+
+/**
  * Sends a conversation turn to InsurFlow Copilot directly via Next.js route (/api/ai/copilot).
+ * Attaches JWT Bearer token and credentials: 'include' for session authentication.
  */
 export async function sendCopilotMessage(
   messages: CopilotMessage[],
@@ -47,13 +63,20 @@ export async function sendCopilotMessage(
     // Call the Next.js API route directly to use Google Gemini integration
     const res = await fetch('/api/ai/copilot', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: getAuthHeaders(),
+      credentials: 'include',
       body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
-      const errBody = await res.text().catch(() => '');
-      throw new Error(`Copilot route responded with status ${res.status}: ${errBody}`);
+      let errText = '';
+      try {
+        const errJson = await res.json();
+        errText = errJson.message || errJson.error || errJson.response || '';
+      } catch {
+        errText = await res.text().catch(() => '');
+      }
+      throw new Error(errText || `Erreur serveur (${res.status}) lors de l'appel Copilot`);
     }
 
     const data = await res.json();

@@ -289,12 +289,13 @@ export default function CopilotWidget() {
       if (res.suggestedActions && res.suggestedActions.length > 0) {
         setSuggestedActions(res.suggestedActions);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to send message to Copilot:', err);
       const errorMessage: CopilotMessage = {
         id: `err-${Date.now()}`,
         role: 'assistant',
         content:
+          err?.message ||
           '⚠️ Une erreur est survenue lors de la communication avec le serveur. Veuillez réessayer ou vérifier votre connexion.',
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
       };

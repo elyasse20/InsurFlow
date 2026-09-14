@@ -12,8 +12,9 @@ export function middleware(request: NextRequest) {
   // Define protected & public paths
   const isLoginPage = pathname.startsWith('/login');
   const isPublicAsset =
-    pathname.startsWith('/_next') ||
     pathname.startsWith('/api') ||
+    pathname === '/api/ai/copilot' ||
+    pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon.ico') ||
     pathname.includes('.');
 
@@ -40,11 +41,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for:
+     * - api routes (/api/*)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - static assets (.svg, .png, .jpg, etc.)
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };
