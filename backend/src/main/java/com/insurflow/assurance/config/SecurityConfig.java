@@ -79,8 +79,6 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/**").permitAll()
                 // Admin-only user management
                 .requestMatchers("/api/users/**").hasRole("ADMIN")
-                // AI Copilot, Risk Assessment & Claims Analyzer (accessible to active roles: ADMIN, USER)
-                .requestMatchers("/api/ai/**").hasAnyRole("ADMIN", "USER", "admin", "user")
                 // Everything else requires authentication
                 .anyRequest().authenticated()
             )

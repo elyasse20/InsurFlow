@@ -160,8 +160,9 @@ export async function POST(request: Request) {
               contents,
             });
             generatedText = fallbackResponse?.text || '';
-          } catch (m2Err: any) {
-            console.warn('Gemini fallback model also failed (using intelligent insurance engine):', m2Err?.message || m2Err);
+          } catch (m2Err) {
+            console.error('Gemini API Error:', m2Err);
+            throw m2Err;
           }
         }
 
