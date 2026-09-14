@@ -153,8 +153,8 @@ export async function POST(request: Request) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const contents = formatMessagesForGemini(messages);
 
-    // Modèle par défaut fixé à 'gemini-1.5-flash' (remplace tout appel non supporté à gemini-1.5-pro)
-    const targetModel = process.env.GEMINI_MODEL || 'gemini-1.5-flash';
+    // Modèle par défaut fixé à 'gemini-2.5-flash'
+    const targetModel = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
 
     let generatedText = '';
 
@@ -212,12 +212,17 @@ export async function POST(request: Request) {
         );
       }
 
-      // Fallback automatique vers 'gemini-1.5-flash-latest' si le modèle initial a échoué
-      if (targetModel !== 'gemini-1.5-flash-latest') {
+      // Modèles de secours en cas d'indisponibilité temporaire ou d'évolution d'API
+      const candidateModels = ['gemini-3.5-flash', 'gemini-3.5-flash-lite', 'gemini-flash-latest'].filter(
+        (m) => m !== targetModel
+      );
+
+      let fallbackSuccess = false;
+      for (const fallbackModelName of candidateModels) {
         try {
-          console.info('Tentative de fallback vers le modèle gemini-1.5-flash-latest...');
+          console.info(`Tentative de fallback vers le modèle ${fallbackModelName}...`);
           const fallbackModel = genAI.getGenerativeModel({
-            model: 'gemini-1.5-flash-latest',
+            model: fallbackModelName,
             systemInstruction: SYSTEM_PROMPT,
             generationConfig: {
               temperature: 0.4,
@@ -229,14 +234,11 @@ export async function POST(request: Request) {
           const fallbackResult = await fallbackModel.generateContent({ contents });
           const fallbackResponse = await fallbackResult.response;
           generatedText = fallbackResponse.text();
+          fallbackSuccess = true;
+          break;
         } catch (fallbackErr: any) {
-          console.error(
-            'Erreur lors du fallback Gemini (gemini-1.5-flash-latest):',
-            fallbackErr?.message || fallbackErr
-          );
-
+          console.warn(`Fallback vers ${fallbackModelName} a échoué:`, fallbackErr?.message || fallbackErr);
           if (isGoogle403Error(fallbackErr)) {
-            console.error('Google Gemini API Fallback Error 403: Clé API refusée par Google.');
             return NextResponse.json(
               {
                 error: 'Google Gemini 403 Forbidden: Clé API invalide ou non autorisée.',
@@ -252,24 +254,10 @@ export async function POST(request: Request) {
               { status: 403 }
             );
           }
-
-          return NextResponse.json(
-            {
-              error: `Erreur API Google Gemini: ${primaryErr?.message || fallbackErr?.message || 'Échec de génération'}`,
-              message:
-                '⚠️ Une erreur est survenue lors de la communication avec le modèle Gemini. Veuillez vérifier votre clé API ou réessayer.',
-              response:
-                '⚠️ Une erreur est survenue lors de la communication avec le modèle Gemini. Veuillez vérifier votre clé API ou réessayer.',
-              suggestedActions: [
-                'Quelles sont les polices à renouveler ce mois ?',
-                'Rédiger un email de relance de quittance impayée',
-                'Explication franchise Tous Risques vs Tiers Collision',
-              ],
-            },
-            { status: 500 }
-          );
         }
-      } else {
+      }
+
+      if (!fallbackSuccess) {
         return NextResponse.json(
           {
             error: `Erreur API Google Gemini: ${primaryErr?.message || 'Échec de génération'}`,

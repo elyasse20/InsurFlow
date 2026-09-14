@@ -326,15 +326,7 @@ public class AiCopilotService {
     }
 
     private CopilotChatResponse handleGeneralInsuranceQuery(String query) {
-        String text = "🤖 **InsurFlow Copilot • Conseil Courtier :**\n\n" +
-                "Concernant votre demande (*\"" + query + "\"*) :\n\n" +
-                "En tant que gestionnaire d'assurances, vous opérez sous le cadre réglementaire de l'**ACAPS** et du **Code des Assurances (Loi n° 17-99)**.\n\n" +
-                "Je conserve l'historique de notre échange pour vous assister de manière continue.\n\n" +
-                "Je peux vous assister sur les sujets suivants :\n" +
-                "• La rédaction et personnalisation de courriers (relances, quittances, sinistres, résiliations)\n" +
-                "• L'analyse actuarielle de risque et conseils de franchise\n" +
-                "• Le suivi des échéances et renouvellements du portefeuille\n" +
-                "• La fiscalité des primes (TVA 14%, taxe parafiscale, accessoires)";
+        String text = "Bonjour ! Comment puis-je vous assister dans vos opérations d'assurance aujourd'hui ?";
 
         return CopilotChatResponse.builder()
                 .response(text)
