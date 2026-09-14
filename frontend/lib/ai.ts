@@ -54,8 +54,8 @@ export async function assessRisk(request: RiskAssessmentRequest): Promise<RiskAs
 
 /**
  * Sends a conversation turn to InsurFlow Copilot.
- * Uses authenticated API client with Bearer token & session credentials,
- * with fallback to local Next.js route handler.
+ * Directly invokes the Google Gemini powered Next.js API route (/api/ai/copilot)
+ * with Bearer token authentication & session credentials, falling back to backend if needed.
  */
 export async function sendCopilotMessage(
   messages: CopilotMessage[],
@@ -63,7 +63,32 @@ export async function sendCopilotMessage(
 ): Promise<CopilotChatResponse> {
   const payload: CopilotChatRequest = { messages, contextPage };
 
-  // 1. First attempt: call via authenticated Axios API client (Bearer token + withCredentials)
+  // 1. Primary: Call Next.js Gemini route directly
+  try {
+    const res = await fetch('/api/ai/copilot', {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const text = data.response || data.message || '';
+      return {
+        response: text,
+        message: text,
+        suggestedActions: data.suggestedActions || [],
+      };
+    }
+
+    const errBody = await res.text().catch(() => '');
+    console.warn(`Next.js Copilot Gemini route returned ${res.status}: ${errBody}, trying backend fallback...`);
+  } catch (routeErr) {
+    console.warn('Next.js /api/ai/copilot call failed, attempting backend fallback...', routeErr);
+  }
+
+  // 2. Fallback: Spring Boot backend
   try {
     const res = await api.post<CopilotChatResponse>('/ai/copilot', payload, {
       withCredentials: true,
@@ -76,36 +101,7 @@ export async function sendCopilotMessage(
       suggestedActions: data.suggestedActions || [],
     };
   } catch (apiError: any) {
-    console.warn(
-      'Primary API call to /api/ai/copilot failed, attempting Next.js local route fallback...',
-      apiError?.response?.status || apiError?.message || apiError
-    );
-
-    // 2. Fallback attempt: direct fetch with Bearer token and credentials: 'include'
-    try {
-      const res = await fetch('/api/ai/copilot', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        credentials: 'include',
-        body: JSON.stringify(payload),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
-        const text = data.response || data.message || '';
-        return {
-          response: text,
-          message: text,
-          suggestedActions: data.suggestedActions || [],
-        };
-      }
-
-      const errBody = await res.text().catch(() => '');
-      console.error(`Copilot route responded with status ${res.status}: ${errBody}`);
-    } catch (fallbackErr) {
-      console.error('Fallback /api/ai/copilot route also failed:', fallbackErr);
-    }
-
+    console.error('Both Next.js Gemini route and backend Copilot failed:', apiError);
     throw apiError;
   }
 }
